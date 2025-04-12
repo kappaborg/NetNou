@@ -2,4 +2,3 @@ tensorflow
 opencv-python # Video işleme için eklendi
 deepface # Duygu tanıma ve yüz analizi için eklendi
 tf-keras # Required by deepface/retinaface for TF >= 2.16
-# İleride eklenecek diğer kütüphaneler buraya gelecek 
