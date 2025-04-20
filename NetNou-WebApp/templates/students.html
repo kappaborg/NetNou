@@ -1,0 +1,89 @@
+{% extends "layout.html" %}
+
+{% block title %}NetNou - Students{% endblock %}
+
+{% block header_title %}Student Management{% endblock %}
+
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block content %}
+<section class="students-section">
+    <div class="section-header">
+        <h2>Students</h2>
+        <div class="search-filter">
+            <input type="text" id="studentSearch" placeholder="Search students..." class="search-input">
+        </div>
+    </div>
+    
+    {% if students %}
+        <div class="students-list">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Face Registered</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                        <tr>
+                            <td>{{ student.id }}</td>
+                            <td>{{ student.first_name }} {{ student.last_name }}</td>
+                            <td>{{ student.email }}</td>
+                            <td>
+                                {% if student.face_registered %}
+                                    <span class="status-tag status-success">Yes</span>
+                                {% else %}
+                                    <span class="status-tag status-error">No</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view-btn" onclick="viewStudent('{{ student.id }}')">View</button>
+                                    {% if not student.face_registered %}
+                                        <button class="action-btn register-btn" onclick="registerFace('{{ student.id }}')">Register Face</button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="no-data">
+            <p>No students found. Add students to get started.</p>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Simple search functionality
+    document.getElementById('studentSearch').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const rows = document.querySelectorAll('.students-list tbody tr');
+        
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        });
+    });
+    
+    function viewStudent(studentId) {
+        // Placeholder for view functionality
+        alert('View student: ' + studentId);
+    }
+    
+    function registerFace(studentId) {
+        // Placeholder for face registration
+        alert('Register face for student: ' + studentId);
+        // In a real implementation, this would redirect to a face registration page
+        // window.location.href = `/register-face/${studentId}`;
+    }
+</script>
+{% endblock %} 

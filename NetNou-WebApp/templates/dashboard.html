@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+
+{% block title %}NetNou - Dashboard{% endblock %}
+
+{% block header_title %}NetNou Dashboard{% endblock %}
+
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block content %}
+<section class="classes-section">
+    <h2>Your Classes</h2>
+    
+    {% if classes %}
+        <div class="classes-grid">
+            {% for class in classes %}
+                <div class="class-card">
+                    <h3>{{ class.name }}</h3>
+                    <p>{{ class.description }}</p>
+                    <div class="class-info">
+                        <span>Students: {{ class.student_count|default(0) }}</span>
+                    </div>
+                    <a href="{{ url_for('web.class_detail', class_id=class.id) }}" class="view-btn">View Details</a>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="no-data">
+            <p>No classes found. Start by creating a new class.</p>
+        </div>
+    {% endif %}
+</section>
+{% endblock %} 

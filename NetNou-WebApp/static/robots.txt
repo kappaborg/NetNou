@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Disallow access to authentication pages
+Disallow: /login
+Disallow: /logout
+
+# Disallow access to API routes
+Disallow: /api/
+
+Sitemap: /sitemap.xml 

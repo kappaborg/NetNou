@@ -1,4 +1,8 @@
-tensorflow
-opencv-python # Video işleme için eklendi
-deepface # Duygu tanıma ve yüz analizi için eklendi
-tf-keras # Required by deepface/retinaface for TF >= 2.16
+tensorflow>=2.12.0
+opencv-python>=4.7.0 # Video işleme için eklendi
+deepface>=0.0.79 # Duygu tanıma ve yüz analizi için eklendi
+tf-keras>=2.12.0 # Required by deepface/retinaface for TF >= 2.16
+numba>=0.56.4 # Performans optimizasyonu için eklendi
+psutil>=5.9.5 # Sistem kaynak kullanımını izlemek için eklendi
+flask>=2.3.0 # Web uygulaması için eklendi
+face_recognition>=1.3.0 # Yüz tanıma için eklendi

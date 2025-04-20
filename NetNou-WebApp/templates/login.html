@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+
+{% set hide_header = true %}
+
+{% block title %}NetNou - Login{% endblock %}
+
+{% block full_content %}
+<div class="login-container">
+    <h1>NetNou Login</h1>
+    <form method="POST" action="{{ url_for('web.login') }}">
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit" class="login-btn">Login</button>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="error-message">
+                    {{ messages[0] }}
+                </div>
+            {% endif %}
+        {% endwith %}
+    </form>
+</div>
+{% endblock %} 

@@ -1,0 +1,204 @@
+{% extends "layout.html" %}
+
+{% block title %}NetNou - Take Attendance{% endblock %}
+
+{% block header_title %}Take Attendance{% endblock %}
+
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block content %}
+<section class="attendance-section">
+    <div class="section-header">
+        <h2>Face Recognition Attendance</h2>
+    </div>
+    
+    <div class="attendance-setup">
+        <div class="form-group">
+            <label for="classSelect">Select Class:</label>
+            <select id="classSelect" class="form-control">
+                <option value="">-- Select a class --</option>
+                {% for class in classes %}
+                    <option value="{{ class.id }}">{{ class.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="button-group">
+            <button id="startCamera" class="primary-btn" disabled>Start Camera</button>
+            <button id="captureBtn" class="secondary-btn" disabled>Capture</button>
+            <button id="stopCamera" class="danger-btn" disabled>Stop Camera</button>
+        </div>
+    </div>
+    
+    <div class="camera-container">
+        <div class="video-container">
+            <video id="webcam" autoplay playsinline></video>
+            <canvas id="canvas" style="display: none;"></canvas>
+        </div>
+        
+        <div class="attendance-results">
+            <h3>Recognition Results</h3>
+            <div id="results" class="results-container">
+                <p class="placeholder-text">Captured students will appear here</p>
+            </div>
+            
+            <div class="attendance-summary">
+                <h4>Summary</h4>
+                <p>Total Identified: <span id="identifiedCount">0</span></p>
+                <p>Total Unknown: <span id="unknownCount">0</span></p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // DOM elements
+    const classSelect = document.getElementById('classSelect');
+    const startCameraBtn = document.getElementById('startCamera');
+    const captureBtn = document.getElementById('captureBtn');
+    const stopCameraBtn = document.getElementById('stopCamera');
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('canvas');
+    const results = document.getElementById('results');
+    const identifiedCount = document.getElementById('identifiedCount');
+    const unknownCount = document.getElementById('unknownCount');
+    
+    // Variables
+    let stream = null;
+    let identified = 0;
+    let unknown = 0;
+    let recordedStudents = new Set();
+    
+    // Enable start button when class is selected
+    classSelect.addEventListener('change', function() {
+        startCameraBtn.disabled = !this.value;
+    });
+    
+    // Start camera
+    startCameraBtn.addEventListener('click', async function() {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: 'user'
+                } 
+            });
+            
+            video.srcObject = stream;
+            
+            // Enable capture button, disable start button
+            captureBtn.disabled = false;
+            stopCameraBtn.disabled = false;
+            startCameraBtn.disabled = true;
+            classSelect.disabled = true;
+            
+            // Clear placeholder
+            results.innerHTML = '<p class="status-message">Camera started. Ready to capture faces.</p>';
+            
+        } catch (err) {
+            console.error('Error accessing camera:', err);
+            results.innerHTML = `<p class="error-message">Error: ${err.message}</p>`;
+        }
+    });
+    
+    // Capture image
+    captureBtn.addEventListener('click', function() {
+        if (!stream) return;
+        
+        // Draw current video frame to canvas
+        const context = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Convert to base64
+        const imageData = canvas.toDataURL('image/jpeg');
+        
+        // Show processing message
+        results.innerHTML = '<p class="status-message">Processing image...</p>';
+        
+        // Simulate API call (in a real app, send to server)
+        setTimeout(() => {
+            identifyFace(imageData);
+        }, 1000);
+    });
+    
+    // Stop camera
+    stopCameraBtn.addEventListener('click', function() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+            stream = null;
+            
+            // Reset buttons
+            captureBtn.disabled = true;
+            stopCameraBtn.disabled = true;
+            startCameraBtn.disabled = false;
+            classSelect.disabled = false;
+            
+            results.innerHTML += '<p class="status-message">Camera stopped.</p>';
+        }
+    });
+    
+    // Simulate face identification (in real app, this would call your API)
+    function identifyFace(imageData) {
+        // Simulate API response (random result for demo)
+        const isIdentified = Math.random() > 0.3;
+        const classId = classSelect.value;
+        
+        if (isIdentified) {
+            // Generate fake student data
+            const studentId = 'S' + Math.floor(Math.random() * 1000);
+            const firstName = ['John', 'Jane', 'Alex', 'Maria', 'Sam'][Math.floor(Math.random() * 5)];
+            const lastName = ['Smith', 'Doe', 'Johnson', 'Brown', 'Davis'][Math.floor(Math.random() * 5)];
+            
+            // Check if student already recorded
+            if (!recordedStudents.has(studentId)) {
+                recordedStudents.add(studentId);
+                identified++;
+                identifiedCount.textContent = identified;
+                
+                // Log attendance (in real app, call API)
+                const timestamp = new Date().toLocaleTimeString();
+                
+                results.innerHTML = `
+                    <div class="result-card identified">
+                        <h4>Student Identified</h4>
+                        <p><strong>Name:</strong> ${firstName} ${lastName}</p>
+                        <p><strong>ID:</strong> ${studentId}</p>
+                        <p><strong>Time:</strong> ${timestamp}</p>
+                        <div class="success-message">✓ Attendance recorded</div>
+                    </div>
+                ` + results.innerHTML;
+                
+                // Simulate API call for recording attendance
+                console.log(`Recording attendance for student ${studentId} in class ${classId}`);
+            } else {
+                results.innerHTML = `
+                    <div class="result-card duplicate">
+                        <h4>Already Recorded</h4>
+                        <p><strong>Name:</strong> ${firstName} ${lastName}</p>
+                        <p><strong>ID:</strong> ${studentId}</p>
+                        <p>This student has already been recorded.</p>
+                    </div>
+                ` + results.innerHTML;
+            }
+        } else {
+            // Unknown face
+            unknown++;
+            unknownCount.textContent = unknown;
+            
+            results.innerHTML = `
+                <div class="result-card unknown">
+                    <h4>Unknown Person</h4>
+                    <p>This person could not be identified as a registered student.</p>
+                    <p>Please ensure the face is clearly visible and properly lit.</p>
+                </div>
+            ` + results.innerHTML;
+        }
+    }
+</script>
+{% endblock %} 

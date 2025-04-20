@@ -1,0 +1,158 @@
+{% extends "layout.html" %}
+
+{% block title %}NetNou - Class Details{% endblock %}
+
+{% block header_title %}Class Details{% endblock %}
+
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block content %}
+{% if attendance and attendance.class_info %}
+    <div class="class-header">
+        <h2>{{ attendance.class_info.name }}</h2>
+        <p>{{ attendance.class_info.description }}</p>
+        
+        <div class="class-stats">
+            <div class="stat-item">
+                <span class="stat-value">{{ attendance.stats.total_students }}</span>
+                <span class="stat-label">Students</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ attendance.stats.attendance_rate }}%</span>
+                <span class="stat-label">Attendance Rate</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ attendance.stats.sessions }}</span>
+                <span class="stat-label">Sessions</span>
+            </div>
+        </div>
+    </div>
+    
+    <section class="attendance-section">
+        <div class="section-header">
+            <h3>Attendance Records</h3>
+            <div class="date-filter">
+                <label for="dateFilter">Filter by date:</label>
+                <input type="date" id="dateFilter" class="date-input">
+            </div>
+        </div>
+        
+        {% if attendance.records %}
+            <div class="attendance-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in attendance.records %}
+                            <tr data-date="{{ record.date }}">
+                                <td>{{ record.student_id }}</td>
+                                <td>{{ record.student_name }}</td>
+                                <td>{{ record.date }}</td>
+                                <td>{{ record.time }}</td>
+                                <td>
+                                    <span class="status-tag status-{{ record.status_class }}">
+                                        {{ record.status }}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="export-options">
+                <button class="secondary-btn" onclick="exportAttendance('csv')">Export CSV</button>
+                <button class="secondary-btn" onclick="exportAttendance('pdf')">Export PDF</button>
+            </div>
+        {% else %}
+            <div class="no-data">
+                <p>No attendance records found for this class.</p>
+            </div>
+        {% endif %}
+    </section>
+    
+    <section class="analytics-section">
+        <h3>Attendance Analytics</h3>
+        <div class="analytics-cards">
+            <div class="analytics-card">
+                <h4>Attendance Trend</h4>
+                <div id="attendanceChart" class="chart-container">
+                    <!-- Chart would be rendered here using a library like Chart.js -->
+                    <div class="chart-placeholder">
+                        <p>Attendance trend visualization</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="analytics-card">
+                <h4>Student Engagement</h4>
+                <div id="engagementChart" class="chart-container">
+                    <!-- Chart would be rendered here -->
+                    <div class="chart-placeholder">
+                        <p>Student engagement visualization</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+{% else %}
+    <div class="no-data">
+        <p>Class information not found. Please return to the dashboard and select a valid class.</p>
+        <a href="{{ url_for('web.dashboard') }}" class="primary-btn">Return to Dashboard</a>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Date filtering functionality
+    document.getElementById('dateFilter').addEventListener('change', function() {
+        const selectedDate = this.value;
+        const rows = document.querySelectorAll('.attendance-table-container tbody tr');
+        
+        rows.forEach(row => {
+            const rowDate = row.getAttribute('data-date');
+            if (!selectedDate || rowDate === selectedDate) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+    
+    // Export functionality (placeholder)
+    function exportAttendance(format) {
+        alert(`Exporting attendance in ${format.toUpperCase()} format...`);
+        // In a real implementation, this would trigger an API call to export the data
+    }
+    
+    // In a real implementation, you would include Chart.js or another library
+    // and render actual charts based on the data
+    
+    /*
+    // Example Chart.js implementation
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('attendanceChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                datasets: [{
+                    label: 'Attendance Rate (%)',
+                    data: [75, 82, 78, 85],
+                    borderColor: '#4285f4',
+                    tension: 0.1
+                }]
+            }
+        });
+    });
+    */
+</script>
+{% endblock %} 

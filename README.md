@@ -1,112 +1,163 @@
-# NetNou - NN Engagement Analysis
+# NetNou: AI Student Attendance & Engagement Analysis
 
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This project analyzes Face engagement in real-time using computer vision and a neural network implemented from scratch.
+A powerful real-time face analysis system that leverages computer vision and neural networks to track student engagement and attendance.
 
-## Core Functionality
+## Features
 
-The main application (`NetNou/demographic_analysis/live_demographics.py`) uses a webcam to:
-
-1.  **Detect Faces:** Identifies faces in the video stream using various backends provided by the `deepface` library.
-2.  **Analyze Demographics & Emotion:** Estimates the **age**, **gender**, and dominant **emotion** (e.g., happy, sad, neutral) for each detected face using `deepface`.
-3.  **Predict Engagement:** Uses a **simple neural network built from scratch** with NumPy (`NetNou/scratch_nn/simple_nn.py`) to predict the student's engagement level ("Engaged", "Neutral", "Not Engaged") based on the detected emotion.
-
-The live video feed displays bounding boxes around faces along with the analyzed information (emotion, age, gender, engagement level).
-
-## Key Features
-
-*   **Real-time Analysis:** Processes webcam feed for immediate feedback.
-*   **DeepFace Integration:** Leverages the powerful `deepface` library for robust face detection, emotion recognition, age, and gender estimation.
-*   **Scratch Neural Network (`SimpleNN`):** Includes a feedforward neural network implemented purely with NumPy (`NetNou/scratch_nn/simple_nn.py`) to demonstrate fundamental concepts (forward/backward propagation). This network is trained to predict engagement from emotion.
-*   **Configurable Performance:** Allows selection of different face detection backends and analysis frequency to balance accuracy and speed (FPS).
+- **Real-time Face Detection & Analysis**: Detect faces and analyze demographics in live video
+- **Emotion Recognition**: Identify emotions (happy, sad, angry, etc.) of detected faces
+- **Engagement Prediction**: Determine student engagement level using a custom neural network
+- **Demographics Analysis**: Estimate age and gender of each detected person
+- **Performance Optimization**: Multiple detection backends with adjustable analysis frequency
+- **Web Application**: Easy-to-use interface with Flask (NetNou-WebApp)
+- **Custom Neural Network**: Implementation from scratch using NumPy
 
 ## Project Structure
 
 ```
 .
-├── NetNou/
-│   ├── demographic_analysis/  # Main live analysis script
-│   │   └── live_demographics.py
-│   ├── scratch_nn/          # Neural Network from scratch
-│   │   ├── simple_nn.py
-│   │   ├── train_engagement_nn.py
-│   │   └── engagement_nn_weights.npz # Trained weights
-│   └── emotion_recognition/ # (Older/related code, main is demographic_analysis)
-├── requirements.txt         # Project dependencies
-└── README.md                # This file
+├── NetNou/                        # Core analysis module
+│   ├── demographic_analysis/      # Real-time face & engagement analysis
+│   │   ├── live_demographics.py   # Main analysis script
+│   │   └── optimized_demo.py      # Optimized version for better performance
+│   ├── scratch_nn/                # Neural network implementation
+│   │   ├── simple_nn.py           # Neural network built from scratch with NumPy
+│   │   └── train_engagement_nn.py # Training script for the engagement model
+│   └── emotion_recognition/       # Additional emotion analysis tools
+├── NetNou-WebApp/                 # Web application module
+│   └── (Flask application files)
+└── requirements.txt               # Project dependencies
 ```
 
 ## Installation
 
-1.  **Prerequisites:**
-    *   Python 3.9+
-    *   Git (for cloning)
-2.  **Clone the Repository:**
-    ```bash
-    git clone <your-repository-url>
-    cd ai-student-attendance-system # Or your project directory name
-    ```
-3.  **Install Dependencies:**
-    It's highly recommended to use a virtual environment:
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-    ```
-    Then install the required packages:
-    ```bash
-    pip install -r requirements.txt
-    ```
-    *   **Note:** This installs `opencv-python`, `deepface`, `tensorflow` (as a dependency of `deepface`), `numpy`, etc.
-    *   **Troubleshooting:** If you encounter issues with TensorFlow versions (`tensorflow`, `tf-keras`), try cleaning and reinstalling:
-        ```bash
-        pip uninstall tensorflow tensorflow-macos tf-keras -y
-        pip install --upgrade --force-reinstall tensorflow "numpy<2.0" # Ensure NumPy compatibility
-        ```
-4.  **Model Downloads:** The first time you run the main script, `deepface` will automatically download necessary pre-trained models. Ensure you have an internet connection.
+1. **Prerequisites**:
+   - Python 3.9 or higher
+   - Webcam (for live analysis)
+
+2. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/yourusername/ai-student-attendance-system.git
+   cd ai-student-attendance-system
+   ```
+
+3. **Create a Virtual Environment** (recommended):
+   ```bash
+   python -m venv venv
+   
+   # On Windows
+   venv\Scripts\activate
+   
+   # On macOS/Linux
+   source venv/bin/activate
+   ```
+
+4. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+   
+   Note: On first run, DeepFace will automatically download required models.
 
 ## Usage
 
-Navigate to the project's root directory in your terminal.
+### 1. Real-time Engagement Analysis
 
-**1. Run Live Analysis:**
+Run the live analysis script to analyze faces, emotions, and engagement in real-time:
 
 ```bash
-python NetNou/demographic_analysis/live_demographics.py [OPTIONS]
+python NetNou/demographic_analysis/live_demographics.py
 ```
 
-*   **Examples:**
-    *   `python NetNou/demographic_analysis/live_demographics.py` (Runs with interactive prompts or defaults)
-    *   `python NetNou/demographic_analysis/live_demographics.py --detector mediapipe --analyze_every 2` (Uses MediaPipe detector, analyzes every 2nd frame)
-*   **Options:**
-    *   `--detector <backend>`: Choose face detector (`opencv`, `ssd`, `mediapipe`, `mtcnn`, etc.). Use `-h` for details. `mediapipe` or `ssd` often offer a good speed/accuracy balance.
-    *   `--analyze_every <N>`: Analyze every Nth frame (e.g., `1`, `2`, `3`). Higher numbers increase FPS but decrease update frequency.
-    *   `--enforce`: Stop if no face is detected.
-*   **Quit:** Press 'q' in the OpenCV window to stop the analysis.
+This will:
+- Open your webcam
+- Detect faces in the video feed
+- Analyze emotions, age, and gender
+- Predict engagement level
 
-**2. Train the Engagement Neural Network (Optional):**
+**Command-line Options**:
 
-The repository includes pre-trained weights (`engagement_nn_weights.npz`). If you want to retrain the scratch NN (e.g., after modifying `simple_nn.py` or `train_engagement_nn.py`):
+```bash
+# Use a specific face detector (faster/more accurate options available)
+python NetNou/demographic_analysis/live_demographics.py --detector mediapipe
+
+# Analyze every Nth frame to improve performance
+python NetNou/demographic_analysis/live_demographics.py --analyze_every 2
+
+# Enforce face detection (stop if no face is found)
+python NetNou/demographic_analysis/live_demographics.py --enforce
+
+# Combine options
+python NetNou/demographic_analysis/live_demographics.py --detector ssd --analyze_every 3
+```
+
+Available detectors (from fastest to most accurate):
+- `opencv` (default, fast but less accurate)
+- `ssd` (good balance of speed and accuracy)
+- `mediapipe` (good balance of speed and accuracy)
+- `mtcnn` (slower but more accurate)
+- `retinaface` (slowest but most accurate)
+
+### 2. Train the Engagement Neural Network
+
+If you want to retrain the engagement prediction model:
 
 ```bash
 python NetNou/scratch_nn/train_engagement_nn.py
 ```
-This will update/create the `NetNou/scratch_nn/engagement_nn_weights.npz` file.
 
-## Scratch Neural Network Details (`simple_nn.py`)
+This will train the neural network based on emotion-to-engagement mappings and save the weights to `engagement_nn_weights.npz`.
 
-This project includes a simple feedforward neural network (`SimpleNN`) built from scratch using only NumPy as an educational component.
+### 3. Web Application (NetNou-WebApp)
 
-*   **Purpose:** Demonstrates core NN concepts like layers, activation functions (Sigmoid, ReLU), loss functions (MSE, BCE), forward propagation, and backpropagation (gradient descent).
-*   **Usage:** It's loaded by `live_demographics.py` and uses the emotion detected by `deepface` to predict student engagement.
+To run the web application:
 
-## Future Ideas
+```bash
+cd NetNou-WebApp
+python run.py
+```
 
-*   Enhance the scratch `SimpleNN` (more layers, optimizers, regularization).
-*   Develop a graphical user interface (GUI).
-*   Log analysis results over time.
+Access the web interface at `http://localhost:5000` in your browser.
+
+## How It Works
+
+### Facial Analysis Pipeline
+
+1. **Face Detection**: Identifies faces in each frame using the selected backend
+2. **Emotion Analysis**: DeepFace analyzes the dominant emotion
+3. **Demographics**: Age and gender are estimated for each face
+4. **Engagement Prediction**: The neural network predicts engagement based on emotional cues
+5. **Visualization**: Results are displayed with bounding boxes and text
+
+### Neural Network Architecture
+
+The `SimpleNN` class implements a feedforward neural network with:
+- One input layer (emotion values)
+- One hidden layer with configurable neurons
+- One output layer (engagement score)
+- Support for different activation functions (ReLU, Sigmoid) and loss functions (MSE, BCE)
+- Numba optimization for faster computation when available
+
+## Troubleshooting
+
+- **Performance Issues**: Try a faster detector (`opencv` or `ssd`) or increase `analyze_every` value
+- **Detection Problems**: Try a more accurate detector (`retinaface` or `mtcnn`)
+- **TensorFlow Errors**: Ensure compatible versions with:
+  ```bash
+  pip uninstall tensorflow tensorflow-macos tf-keras -y
+  pip install --force-reinstall tensorflow "numpy<2.0"
+  ```
+- **Webcam Access**: Ensure your webcam is connected and not in use by another application
 
 ## License
 
-[MIT](https://opensource.org/licenses/MIT)
+[MIT License](LICENSE)
+
+## Acknowledgments
+
+- DeepFace library for facial analysis
+- NumPy for mathematical operations
+- OpenCV for computer vision functionality

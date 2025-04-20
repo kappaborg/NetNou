@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}NetNou{% endblock %}</title>
+    
+    <!-- Browser caching for CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=1.0">
+    
+    <!-- Preload critical assets -->
+    <link rel="preload" href="{{ url_for('static', filename='css/style.css') }}" as="style">
+    <link rel="preload" href="{{ url_for('static', filename='js/main.js') }}" as="script">
+    
+    <!-- SEO improvements -->
+    <meta name="description" content="NetNou - Student Attendance System with Face Recognition">
+    <meta name="keywords" content="attendance, face recognition, student management">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
+    
+    {% block styles %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    {% if not hide_header %}
+    <div class="dashboard-container">
+        <header>
+            <h1>{% block header_title %}NetNou{% endblock %}</h1>
+            <div class="user-actions">
+                {% if session.user %}
+                <a href="{{ url_for('web.logout') }}" class="logout-btn">Logout</a>
+                {% endif %}
+            </div>
+        </header>
+        
+        {% if session.user %}
+        <nav class="main-nav">
+            <ul>
+                <li><a href="{{ url_for('web.dashboard') }}" {% if request.endpoint == 'web.dashboard' %}class="active"{% endif %}>Dashboard</a></li>
+                <li><a href="{{ url_for('web.students') }}" {% if request.endpoint == 'web.students' %}class="active"{% endif %}>Students</a></li>
+                <li><a href="{{ url_for('web.take_attendance') }}" {% if request.endpoint == 'web.take_attendance' %}class="active"{% endif %}>Take Attendance</a></li>
+            </ul>
+        </nav>
+        {% endif %}
+        
+        <main>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message {{ category }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    {% else %}
+        {% block full_content %}{% endblock %}
+    {% endif %}
+
+    <!-- Load common JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=1.0" defer></script>
+    
+    <!-- Load page-specific JavaScript -->
+    {% block scripts %}{% endblock %}
+    
+    <!-- Performance optimizations -->
+    <script>
+        // Prefetch next pages (predictive prefetching)
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add prefetch links for likely next pages
+            const links = document.querySelectorAll('a');
+            const prefetchLinks = new Set();
+            
+            links.forEach(link => {
+                // Only prefetch internal links that are likely to be clicked
+                if (link.hostname === window.location.hostname && 
+                    !link.href.includes('#') && 
+                    !prefetchLinks.has(link.href)) {
+                    
+                    const prefetchLink = document.createElement('link');
+                    prefetchLink.rel = 'prefetch';
+                    prefetchLink.href = link.href;
+                    document.head.appendChild(prefetchLink);
+                    
+                    prefetchLinks.add(link.href);
+                    
+                    // Limit to top 3 most important links
+                    if (prefetchLinks.size >= 3) {
+                        return;
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html> 
