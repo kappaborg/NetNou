@@ -10,6 +10,11 @@ from ..config import Config
 from ..database.student_model import get_student, update_student_face
 from ..database.face_model import save_face_embedding, get_all_face_embeddings
 from ..core.nn.simple_nn import SimpleNN
+import io
+from PIL import Image
+from datetime import datetime
+import json
+import uuid
 
 # Load engagement model
 def load_engagement_model():
@@ -37,30 +42,104 @@ EMOTION_ENGAGEMENT_MAP = {
 # Initialize the engagement model
 engagement_model = load_engagement_model()
 
-def decode_image(image_data):
-    """Decode base64 image data to OpenCV format.
+# Create directory for storing face embeddings if it doesn't exist
+FACE_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'faces')
+os.makedirs(FACE_DATA_DIR, exist_ok=True)
+
+# In-memory face database
+FACE_EMBEDDINGS = []
+
+# Load existing face data at startup
+def load_face_data():
+    """Load existing face data from file storage."""
+    global FACE_EMBEDDINGS
+    try:
+        face_data_file = os.path.join(FACE_DATA_DIR, 'face_embeddings.json')
+        if os.path.exists(face_data_file):
+            with open(face_data_file, 'r') as f:
+                FACE_EMBEDDINGS = json.load(f)
+            print(f"Loaded {len(FACE_EMBEDDINGS)} face embeddings from storage")
+    except Exception as e:
+        print(f"Error loading face data: {str(e)}")
+        FACE_EMBEDDINGS = []
+
+# Initialize by loading existing face data
+load_face_data()
+
+def save_face_data():
+    """Save face embeddings to persistent storage."""
+    try:
+        face_data_file = os.path.join(FACE_DATA_DIR, 'face_embeddings.json')
+        with open(face_data_file, 'w') as f:
+            json.dump(FACE_EMBEDDINGS, f)
+        print(f"Saved {len(FACE_EMBEDDINGS)} face embeddings to storage")
+        return True
+    except Exception as e:
+        print(f"Error saving face data: {str(e)}")
+        return False
+
+def decode_image(base64_image):
+    """Decode base64 image to OpenCV format.
+    
+    Args:
+        base64_image (str): Base64 encoded image
+        
+    Returns:
+        numpy.ndarray: OpenCV image or None if decoding fails
+    """
+    try:
+        # Handle data URL format (e.g. "data:image/jpeg;base64,...")
+        if 'base64,' in base64_image:
+            base64_image = base64_image.split('base64,')[1]
+            
+        # Decode base64 to image
+        image_bytes = base64.b64decode(base64_image)
+        image = Image.open(io.BytesIO(image_bytes))
+        
+        # Convert to OpenCV format
+        return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+    except Exception as e:
+        print(f"Error decoding image: {str(e)}")
+        return None
+
+def analyze_face(image_data):
+    """Analyze face in an image.
     
     Args:
         image_data (str): Base64 encoded image data
         
     Returns:
-        numpy.ndarray: Image in OpenCV format
+        dict: Face analysis results
     """
-    # Check if the image is a base64 string
-    if isinstance(image_data, str) and image_data.startswith('data:image'):
-        # Extract the base64 part
-        image_data = image_data.split(',')[1]
-    
-    # Decode the base64 string
-    image_bytes = base64.b64decode(image_data)
-    
-    # Convert to numpy array
-    image_array = np.frombuffer(image_bytes, dtype=np.uint8)
-    
-    # Decode image
-    image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-    
-    return image
+    try:
+        # Decode image
+        image = decode_image(image_data)
+        if image is None:
+            return {'success': False, 'message': 'Invalid image data'}
+        
+        # Convert image to RGB for face_recognition library
+        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        
+        # Detect faces
+        face_locations = face_recognition.face_locations(rgb_image)
+        if not face_locations:
+            return {'success': False, 'message': 'No face detected in image'}
+        
+        if len(face_locations) > 1:
+            return {'success': False, 'message': 'Multiple faces detected. Please provide an image with one face only.'}
+        
+        # Generate face encoding
+        face_encoding = face_recognition.face_encodings(rgb_image, face_locations)[0]
+        
+        return {
+            'success': True,
+            'face_detected': True,
+            'face_location': face_locations[0],
+            'face_encoding': face_encoding.tolist()
+        }
+    except Exception as e:
+        print(f"Error analyzing face: {str(e)}")
+        return {'success': False, 'message': f'Error analyzing face: {str(e)}'}
 
 def register_face(student_id, image_data):
     """Register a student's face in the system.
@@ -72,18 +151,63 @@ def register_face(student_id, image_data):
     Returns:
         dict: Result of registration with success status and message
     """
-    # Check if student exists
-    student = get_student(student_id)
-    if not student:
-        return {'success': False, 'message': 'Student not found'}
+    # Check if student already has a face registered
+    for embedding in FACE_EMBEDDINGS:
+        if embedding['student_id'] == student_id:
+            # Update the existing face embedding instead of returning an error
+            result = analyze_face(image_data)
+            if not result['success']:
+                return result
+                
+            embedding['face_encoding'] = result['face_encoding']
+            embedding['updated_at'] = datetime.now().isoformat()
+            save_face_data()
+            return {'success': True, 'message': 'Face updated successfully'}
     
+    try:
+        # Analyze face and get encoding
+        result = analyze_face(image_data)
+        if not result['success']:
+            return result
+        
+        # Create a new face embedding record
+        embedding_record = {
+            'id': str(uuid.uuid4()),
+            'student_id': student_id,
+            'face_encoding': result['face_encoding'],
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        # Add to database
+        FACE_EMBEDDINGS.append(embedding_record)
+        
+        # Save to persistent storage
+        save_face_data()
+        
+        return {'success': True, 'message': 'Face registered successfully'}
+    
+    except Exception as e:
+        print(f"Error registering face: {str(e)}")
+        return {'success': False, 'message': f'Error registering face: {str(e)}'}
+
+def identify_face(image_data, tolerance=0.6):
+    """Identify a face from an image.
+    
+    Args:
+        image_data (str): Base64 encoded image data
+        tolerance (float): Matching tolerance (lower is stricter)
+        
+    Returns:
+        dict: Identification result with student_id if found
+    """
     try:
         # Decode image
         image = decode_image(image_data)
         if image is None:
             return {'success': False, 'message': 'Invalid image data'}
         
-        # Convert image to RGB for face_recognition
+        # Convert image to RGB for face_recognition library
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
         # Detect faces
@@ -92,30 +216,55 @@ def register_face(student_id, image_data):
             return {'success': False, 'message': 'No face detected in image'}
         
         if len(face_locations) > 1:
-            return {'success': False, 'message': 'Multiple faces detected. Please provide an image with one face only.'}
+            return {'success': False, 'message': 'Multiple faces detected. Please ensure only one person is in the frame.'}
         
-        # Generate face embedding
+        # Generate face encoding
         face_encoding = face_recognition.face_encodings(rgb_image, face_locations)[0]
         
-        # Save face embedding to database
-        save_face_embedding(student_id, face_encoding.tolist())
+        # No faces registered yet
+        if not FACE_EMBEDDINGS:
+            return {'success': False, 'message': 'No faces registered in the system. Please register students first.'}
         
-        # Update student record
-        update_student_face(student_id, True)
+        # Compare with stored face encodings
+        known_encodings = [np.array(embedding['face_encoding']) for embedding in FACE_EMBEDDINGS]
+        matches = face_recognition.compare_faces(known_encodings, face_encoding, tolerance=tolerance)
         
-        return {'success': True, 'message': 'Face registered successfully'}
+        # If we have a match
+        if True in matches:
+            match_index = matches.index(True)
+            matched_student_id = FACE_EMBEDDINGS[match_index]['student_id']
+            
+            # Calculate confidence (1 - distance)
+            face_distances = face_recognition.face_distance(known_encodings, face_encoding)
+            confidence = 1 - float(face_distances[match_index])
+            confidence_percentage = f"{confidence * 100:.2f}%"
+            
+            return {
+                'success': True,
+                'identified': True,
+                'student_id': matched_student_id,
+                'confidence': confidence_percentage
+            }
+        else:
+            return {
+                'success': True,
+                'identified': False,
+                'message': 'Face not recognized. Please register this student.'
+            }
     
     except Exception as e:
-        return {'success': False, 'message': f'Error registering face: {str(e)}'}
+        print(f"Error identifying face: {str(e)}")
+        return {'success': False, 'message': f'Error identifying face: {str(e)}'}
 
-def identify_face(image_data):
-    """Identify a face in the given image.
+def batch_identify_faces(image_data, tolerance=0.6):
+    """Identify multiple faces in a single image.
     
     Args:
         image_data (str): Base64 encoded image data
+        tolerance (float): Matching tolerance (lower is stricter)
         
     Returns:
-        dict: Result of identification with success status, message, and student info if found
+        dict: Identification results with student IDs if found
     """
     try:
         # Decode image
@@ -123,147 +272,128 @@ def identify_face(image_data):
         if image is None:
             return {'success': False, 'message': 'Invalid image data'}
         
-        # Convert image to RGB for face_recognition
+        # Convert image to RGB for face_recognition library
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
         # Detect faces
         face_locations = face_recognition.face_locations(rgb_image)
         if not face_locations:
-            return {'success': False, 'message': 'No face detected in image'}
+            return {'success': False, 'message': 'No faces detected in image'}
         
-        # Get face encodings
-        face_encodings = face_recognition.face_encodings(rgb_image, face_locations)
+        # No faces registered yet
+        if not FACE_EMBEDDINGS:
+            return {'success': False, 'message': 'No faces registered in the system. Please register students first.'}
         
-        # Get all registered face embeddings
-        registered_faces = get_all_face_embeddings()
+        # Extract known face encodings
+        known_encodings = [np.array(embedding['face_encoding']) for embedding in FACE_EMBEDDINGS]
+        known_student_ids = [embedding['student_id'] for embedding in FACE_EMBEDDINGS]
         
-        matches = []
-        
-        # Check each detected face against registered faces
-        for face_encoding in face_encodings:
-            match_found = False
+        # Process each detected face
+        results = []
+        for i, face_location in enumerate(face_locations):
+            # Generate face encoding for this face
+            face_encoding = face_recognition.face_encodings(rgb_image, [face_location])[0]
             
-            for registered_face in registered_faces:
-                registered_encoding = np.array(registered_face['embedding'])
-                
-                # Compare faces
-                distance = face_recognition.face_distance([registered_encoding], face_encoding)[0]
-                
-                # If match is found (distance less than threshold)
-                if distance < 0.6:  # Adjust threshold as needed
-                    student_id = registered_face['student_id']
-                    student = get_student(student_id)
-                    
-                    if student:
-                        # Analyze face for demographics and emotion
-                        demographics = analyze_face(rgb_image, face_locations[0])
-                        
-                        matches.append({
-                            'student_id': student_id,
-                            'name': f"{student['first_name']} {student['last_name']}",
-                            'match_confidence': float(1 - distance),
-                            'demographics': demographics
-                        })
-                        match_found = True
-                        break
+            # Compare with stored face encodings
+            matches = face_recognition.compare_faces(known_encodings, face_encoding, tolerance=tolerance)
             
-            if not match_found:
-                # If no match found, still analyze the face
-                demographics = analyze_face(rgb_image, face_locations[0])
-                matches.append({
-                    'student_id': None,
-                    'name': 'Unknown',
-                    'match_confidence': 0.0,
-                    'demographics': demographics
+            # Find the closest match
+            face_distances = face_recognition.face_distance(known_encodings, face_encoding)
+            best_match_index = np.argmin(face_distances)
+            
+            # If we have a match
+            if matches[best_match_index]:
+                matched_student_id = known_student_ids[best_match_index]
+                confidence = 1 - float(face_distances[best_match_index])
+                confidence_percentage = f"{confidence * 100:.2f}%"
+                
+                results.append({
+                    'face_index': i,
+                    'face_location': face_location,
+                    'identified': True,
+                    'student_id': matched_student_id,
+                    'confidence': confidence_percentage
+                })
+            else:
+                results.append({
+                    'face_index': i,
+                    'face_location': face_location,
+                    'identified': False,
+                    'message': 'Face not recognized'
                 })
         
         return {
             'success': True,
-            'message': 'Face identification completed',
-            'matches': matches
+            'face_count': len(face_locations),
+            'results': results
         }
     
     except Exception as e:
-        return {'success': False, 'message': f'Error identifying face: {str(e)}'}
+        print(f"Error in batch face identification: {str(e)}")
+        return {'success': False, 'message': f'Error identifying faces: {str(e)}'}
 
-def analyze_face(image, face_location=None):
-    """Analyze a face for demographics and emotion.
+def face_recognition_attendance(class_id, image_data, tolerance=0.6):
+    """Take attendance using face recognition for an entire class at once.
     
     Args:
-        image (numpy.ndarray): Image containing a face
-        face_location (tuple, optional): Location of the face in the image (top, right, bottom, left)
+        class_id (str): The class ID
+        image_data (str): Base64 encoded image data
+        tolerance (float): Matching tolerance (lower is stricter)
         
     Returns:
-        dict: Demographics and emotion analysis results
+        dict: Attendance results with identified students
     """
-    try:
-        # If face location is provided, crop the image to the face
-        if face_location:
-            top, right, bottom, left = face_location
-            image = image[top:bottom, left:right]
-        
-        # Analyze with DeepFace
-        analysis = DeepFace.analyze(
-            img_path=image,
-            actions=Config.FACE_ANALYZE_ACTIONS,
-            detector_backend=Config.FACE_DETECTION_BACKEND,
-            enforce_detection=False,
-            align=True,
-            silent=True
-        )
-        
-        # Process results
-        if isinstance(analysis, list):
-            analysis = analysis[0]
-            
-        # Extract data
-        result = {}
-        
-        # Get emotion
-        if 'emotion' in analysis:
-            emotions = analysis['emotion']
-            dominant_emotion = max(emotions.items(), key=lambda x: x[1])[0]
-            result['emotion'] = dominant_emotion
-            
-            # Calculate engagement score
-            engagement_score = EMOTION_ENGAGEMENT_MAP.get(dominant_emotion.lower(), 0.5)
-            
-            # Use neural network if available
-            if engagement_model:
-                nn_input = np.array([[engagement_score]])
-                predicted_score = engagement_model.predict(nn_input)[0][0]
-                engagement_score = float(predicted_score)
-            
-            # Get engagement label
-            if engagement_score >= 0.8:
-                engagement_label = "High"
-            elif engagement_score >= 0.4:
-                engagement_label = "Medium"
-            else:
-                engagement_label = "Low"
-                
-            result['engagement'] = {
-                'score': engagement_score,
-                'label': engagement_label
-            }
-        
-        # Get age
-        if 'age' in analysis:
-            result['age'] = int(analysis['age'])
-        
-        # Get gender
-        if 'gender' in analysis:
-            gender_data = analysis['gender']
-            if isinstance(gender_data, dict):
-                result['gender'] = gender_data.get('dominant_gender', 'unknown')
-            else:
-                result['gender'] = str(gender_data)
-        
-        return result
+    # Identify all faces in the image
+    identification_results = batch_identify_faces(image_data, tolerance)
     
-    except Exception as e:
-        print(f"Error analyzing face: {str(e)}")
-        return {'error': str(e)}
+    if not identification_results['success']:
+        return identification_results
+    
+    # Extract student IDs of recognized faces
+    recognized_students = []
+    unrecognized_faces = 0
+    
+    for result in identification_results['results']:
+        if result['identified']:
+            recognized_students.append({
+                'student_id': result['student_id'],
+                'confidence': result['confidence']
+            })
+        else:
+            unrecognized_faces += 1
+    
+    return {
+        'success': True,
+        'class_id': class_id,
+        'timestamp': datetime.now().isoformat(),
+        'recognized_count': len(recognized_students),
+        'unrecognized_count': unrecognized_faces,
+        'recognized_students': recognized_students
+    }
+
+def delete_face_registration(student_id):
+    """Delete a student's face registration.
+    
+    Args:
+        student_id (str): The ID of the student
+        
+    Returns:
+        dict: Result of deletion with success status and message
+    """
+    global FACE_EMBEDDINGS
+    
+    # Check if student has a face registered
+    for i, embedding in enumerate(FACE_EMBEDDINGS):
+        if embedding['student_id'] == student_id:
+            # Remove from the list
+            FACE_EMBEDDINGS.pop(i)
+            
+            # Save changes to persistent storage
+            save_face_data()
+            
+            return {'success': True, 'message': 'Face registration deleted successfully'}
+    
+    return {'success': False, 'message': 'No face registration found for this student'}
 
 def analyze_deepface_batch(frames, backend="opencv", actions=None):
     """Analyze a batch of frames using DeepFace for demographics.

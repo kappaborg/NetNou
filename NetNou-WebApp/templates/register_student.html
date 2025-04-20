@@ -1,0 +1,287 @@
+{% extends "layout.html" %}
+
+{% block title %}NetNou - Register New Student{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Register New Student</h1>
+    <div class="page-actions">
+        <a href="{{ url_for('web.students') }}" class="btn btn-outline">
+            <i class="fas fa-arrow-left"></i> Back to Students
+        </a>
+    </div>
+</div>
+
+<div class="registration-container">
+    <div class="card">
+        <form id="studentRegistrationForm" action="{{ url_for('web.register_student') }}" method="POST">
+            <div class="form-columns">
+                <div class="form-column">
+                    <h3>Student Information</h3>
+                    
+                    <div class="form-group">
+                        <label for="firstName">First Name</label>
+                        <input type="text" id="firstName" name="first_name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="lastName">Last Name</label>
+                        <input type="text" id="lastName" name="last_name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="gender">Gender</label>
+                        <select id="gender" name="gender" class="form-select">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                            <option value="Prefer not to say">Prefer not to say</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="dateOfBirth">Date of Birth</label>
+                        <input type="date" id="dateOfBirth" name="date_of_birth">
+                    </div>
+                </div>
+                
+                <div class="form-column">
+                    <h3>Face Registration</h3>
+                    <p class="instruction-text">
+                        Position the student's face in front of the camera and click "Capture" to take a photo.
+                    </p>
+                    
+                    <div class="camera-container">
+                        <video id="webcam" autoplay playsinline></video>
+                        <div class="camera-overlay">
+                            <div class="face-guide"></div>
+                        </div>
+                        <canvas id="canvas" style="display: none;"></canvas>
+                        <div id="capturedImage" class="captured-image-container" style="display: none;">
+                            <img id="previewImage" src="" alt="Captured face">
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" id="faceImage" name="face_image">
+                    
+                    <div class="camera-controls">
+                        <button id="startCameraBtn" type="button" class="btn btn-outline">
+                            <i class="fas fa-video"></i> Start Camera
+                        </button>
+                        <button id="captureBtn" type="button" class="btn btn-primary" disabled>
+                            <i class="fas fa-camera"></i> Capture
+                        </button>
+                        <button id="retakeBtn" type="button" class="btn btn-outline" style="display: none;">
+                            <i class="fas fa-redo"></i> Retake
+                        </button>
+                    </div>
+                    
+                    <div id="cameraStatus" class="camera-status"></div>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <a href="{{ url_for('web.students') }}" class="btn btn-outline">Cancel</a>
+                <button type="submit" class="btn btn-primary">Register Student</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('canvas');
+    const captureBtn = document.getElementById('captureBtn');
+    const startCameraBtn = document.getElementById('startCameraBtn');
+    const retakeBtn = document.getElementById('retakeBtn');
+    const faceImage = document.getElementById('faceImage');
+    const capturedImage = document.getElementById('capturedImage');
+    const previewImage = document.getElementById('previewImage');
+    const cameraStatus = document.getElementById('cameraStatus');
+    
+    let stream = null;
+    
+    // Start camera
+    startCameraBtn.addEventListener('click', async function() {
+        try {
+            cameraStatus.textContent = 'Accessing camera...';
+            stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: 'user'
+                } 
+            });
+            
+            video.srcObject = stream;
+            startCameraBtn.disabled = true;
+            captureBtn.disabled = false;
+            cameraStatus.textContent = 'Camera active. Position the face in the center.';
+        } catch (err) {
+            cameraStatus.textContent = 'Error accessing camera: ' + err.message;
+            console.error('Error accessing camera:', err);
+        }
+    });
+    
+    // Capture image
+    captureBtn.addEventListener('click', function() {
+        if (!stream) return;
+        
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Draw video frame to canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Convert to base64 image
+        const imageData = canvas.toDataURL('image/jpeg', 0.9);
+        faceImage.value = imageData;
+        
+        // Display the captured image
+        previewImage.src = imageData;
+        capturedImage.style.display = 'block';
+        video.style.display = 'none';
+        
+        // Show retake button
+        captureBtn.style.display = 'none';
+        retakeBtn.style.display = 'block';
+        
+        cameraStatus.textContent = 'Face captured! You can submit the form or retake the photo.';
+    });
+    
+    // Retake photo
+    retakeBtn.addEventListener('click', function() {
+        capturedImage.style.display = 'none';
+        video.style.display = 'block';
+        
+        captureBtn.style.display = 'block';
+        retakeBtn.style.display = 'none';
+        
+        faceImage.value = '';
+        cameraStatus.textContent = 'Camera active. Position the face in the center.';
+    });
+    
+    // Form submission
+    document.getElementById('studentRegistrationForm').addEventListener('submit', function(e) {
+        // Check if required fields are filled
+        const firstName = document.getElementById('firstName').value;
+        const lastName = document.getElementById('lastName').value;
+        const email = document.getElementById('email').value;
+        
+        if (!firstName || !lastName || !email) {
+            e.preventDefault();
+            alert('Please fill in all required fields.');
+            return;
+        }
+        
+        // Face image is optional but encourage it
+        if (!faceImage.value) {
+            if (!confirm('No face image captured. Continue without face registration?')) {
+                e.preventDefault();
+                return;
+            }
+        }
+    });
+    
+    // Clean up camera when leaving page
+    window.addEventListener('beforeunload', function() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    });
+});
+</script>
+
+<style>
+.registration-container {
+    margin-bottom: 40px;
+}
+
+.form-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+}
+
+.camera-container {
+    width: 100%;
+    margin-bottom: 20px;
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #f0f0f0;
+    aspect-ratio: 4/3;
+}
+
+#webcam {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.camera-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.face-guide {
+    width: 200px;
+    height: 200px;
+    border: 2px dashed rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.2);
+}
+
+.camera-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.camera-status {
+    color: var(--text-medium);
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.captured-image-container {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.captured-image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.instruction-text {
+    color: var(--text-medium);
+    margin-bottom: 15px;
+}
+
+@media (max-width: 992px) {
+    .form-columns {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %} 

@@ -6,20 +6,20 @@ from datetime import datetime
 STUDENTS = [
     {
         'id': '1001',
-        'first_name': 'John',
-        'last_name': 'Doe',
-        'email': 'john.doe@example.com',
-        'gender': 'Male',
+        'first_name': 'Fifi',
+        'last_name': 'One',
+        'email': 'cincancoe@example.com',
+        'gender': 'Female',
         'date_of_birth': '2000-05-15',
         'has_face_registered': False,
         'created_at': datetime.now().isoformat()
     },
     {
         'id': '1002',
-        'first_name': 'Jane',
-        'last_name': 'Smith',
-        'email': 'jane.smith@example.com',
-        'gender': 'Female',
+        'first_name': 'Kappasutra',
+        'last_name': 'none',
+        'email': 'demo@example.com',
+        'gender': 'Male',
         'date_of_birth': '2001-08-22',
         'has_face_registered': False,
         'created_at': datetime.now().isoformat()

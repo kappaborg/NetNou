@@ -21,6 +21,15 @@ CLASSES = [
         'schedule': 'Tuesday, Thursday 13:30-15:00',
         'room': 'R102',
         'created_at': datetime.now().isoformat()
+    },
+    {
+        'id': '103',
+        'name': 'Data Mining',
+        'code': 'CD417',
+        'teacher_id': 2,
+        'schedule': 'Wednesday, Friday 10:00-11:30',
+        'room': 'R203',
+        'created_at': datetime.now().isoformat()
     }
 ]
 

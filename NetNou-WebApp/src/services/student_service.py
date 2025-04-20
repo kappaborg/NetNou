@@ -6,6 +6,7 @@ from ..database.student_model import (
     create_student as db_create_student,
     update_student as db_update_student
 )
+from ..database.class_model import get_student_attendance
 
 def get_students():
     """Get all students.
@@ -33,6 +34,37 @@ def get_student(student_id):
     
     # Never return sensitive data to the client
     return sanitize_student(student)
+
+def get_student_details(student_id):
+    """Get detailed information about a student including attendance records.
+    
+    Args:
+        student_id (str): The student ID
+        
+    Returns:
+        dict: Student object with attendance data if found, None otherwise
+    """
+    # Get basic student info
+    student = get_student(student_id)
+    if not student:
+        return None
+    
+    # Get student's attendance records
+    attendance_records = get_student_attendance(student_id)
+    
+    # Compile complete student details
+    student_details = {
+        **student,
+        'attendance_records': attendance_records,
+        'attendance_summary': {
+            'total': len(attendance_records),
+            'present': sum(1 for record in attendance_records if record['status'] == 'present'),
+            'absent': sum(1 for record in attendance_records if record['status'] == 'absent'),
+            'late': sum(1 for record in attendance_records if record['status'] == 'late')
+        }
+    }
+    
+    return student_details
 
 def create_student(student_data):
     """Create a new student.

@@ -1,0 +1,585 @@
+{% extends "layout.html" %}
+
+{% block title %}NetNou - Analytics & Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Analytics & Reports</h1>
+    <div class="page-actions">
+        <button id="exportDataBtn" class="btn btn-outline">
+            <i class="fas fa-download"></i> Export Data
+        </button>
+        <div class="date-range-filter">
+            <input type="date" id="startDate" class="date-input" value="{{ stats.start_date|default('') }}">
+            <span>to</span>
+            <input type="date" id="endDate" class="date-input" value="{{ stats.end_date|default('') }}">
+            <button id="applyDateFilter" class="btn btn-primary">Apply</button>
+        </div>
+    </div>
+</div>
+
+<div class="analytics-overview">
+    <div class="stats-cards">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.total_students|default(0) }}</h3>
+                <p>Total Students</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-clipboard-check"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.attendance_rate|default('0%') }}</h3>
+                <p>Average Attendance</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-brain"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.average_engagement|default('0%') }}</h3>
+                <p>Avg. Engagement</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="analytics-row">
+        <div class="analytics-card attendance-trend">
+            <div class="card-header">
+                <h3>Attendance Trends</h3>
+                <div class="card-actions">
+                    <select id="attendancePeriod" class="form-select">
+                        <option value="week">Last Week</option>
+                        <option value="month" selected>Last Month</option>
+                        <option value="semester">This Semester</option>
+                    </select>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="attendanceChart"></canvas>
+            </div>
+        </div>
+
+        <div class="analytics-card engagement-distribution">
+            <div class="card-header">
+                <h3>Engagement Levels</h3>
+            </div>
+            <div class="chart-container">
+                <canvas id="engagementChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="analytics-row">
+        <div class="analytics-card class-comparison">
+            <div class="card-header">
+                <h3>Class Comparison</h3>
+                <div class="card-actions">
+                    <select id="comparisonMetric" class="form-select">
+                        <option value="attendance">Attendance Rate</option>
+                        <option value="engagement">Engagement Level</option>
+                    </select>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="classComparisonChart"></canvas>
+            </div>
+        </div>
+
+        <div class="analytics-card demographics">
+            <div class="card-header">
+                <h3>Demographics</h3>
+                <div class="card-actions">
+                    <select id="demographicType" class="form-select">
+                        <option value="gender">Gender</option>
+                        <option value="age">Age Group</option>
+                    </select>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="demographicsChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="detailed-reports">
+    <div class="section-header">
+        <h2>Detailed Reports</h2>
+        <div class="filter-actions">
+            <select id="classFilter" class="form-select">
+                <option value="">All Classes</option>
+                <option value="1">Computer Science 101</option>
+                <option value="2">Machine Learning 202</option>
+                <option value="3">Database Systems 301</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="report-tabs">
+        <div class="tab-header">
+            <button class="tab-btn active" data-tab="attendance">Attendance Reports</button>
+            <button class="tab-btn" data-tab="engagement">Engagement Reports</button>
+            <button class="tab-btn" data-tab="students">Student Reports</button>
+        </div>
+
+        <div class="tab-content">
+            <div id="attendanceTab" class="tab-pane active">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Class</th>
+                            <th>Students</th>
+                            <th>Present</th>
+                            <th>Absent</th>
+                            <th>Late</th>
+                            <th>Attendance Rate</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>2023-05-15</td>
+                            <td>Computer Science 101</td>
+                            <td>25</td>
+                            <td>20</td>
+                            <td>3</td>
+                            <td>2</td>
+                            <td>80%</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view-btn" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="action-btn export-btn" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>2023-05-14</td>
+                            <td>Computer Science 101</td>
+                            <td>25</td>
+                            <td>22</td>
+                            <td>2</td>
+                            <td>1</td>
+                            <td>88%</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view-btn" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="action-btn export-btn" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>2023-05-15</td>
+                            <td>Machine Learning 202</td>
+                            <td>18</td>
+                            <td>15</td>
+                            <td>2</td>
+                            <td>1</td>
+                            <td>83%</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view-btn" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="action-btn export-btn" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="engagementTab" class="tab-pane">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Class</th>
+                            <th>High Engagement</th>
+                            <th>Medium Engagement</th>
+                            <th>Low Engagement</th>
+                            <th>Average Score</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>2023-05-15</td>
+                            <td>Computer Science 101</td>
+                            <td>12 (60%)</td>
+                            <td>6 (30%)</td>
+                            <td>2 (10%)</td>
+                            <td>75%</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view-btn" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="action-btn export-btn" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>2023-05-14</td>
+                            <td>Computer Science 101</td>
+                            <td>15 (68%)</td>
+                            <td>5 (23%)</td>
+                            <td>2 (9%)</td>
+                            <td>78%</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view-btn" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="action-btn export-btn" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>2023-05-15</td>
+                            <td>Machine Learning 202</td>
+                            <td>11 (73%)</td>
+                            <td>3 (20%)</td>
+                            <td>1 (7%)</td>
+                            <td>81%</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view-btn" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="action-btn export-btn" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="studentsTab" class="tab-pane">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>ID</th>
+                            <th>Classes</th>
+                            <th>Attendance Rate</th>
+                            <th>Engagement Level</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>John Smith</td>
+                            <td>1001</td>
+                            <td>2</td>
+                            <td>92%</td>
+                            <td>High</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view-btn" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="action-btn export-btn" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Maria Garcia</td>
+                            <td>1002</td>
+                            <td>3</td>
+                            <td>78%</td>
+                            <td>Medium</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view-btn" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="action-btn export-btn" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Ahmed Hassan</td>
+                            <td>1003</td>
+                            <td>2</td>
+                            <td>65%</td>
+                            <td>Low</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view-btn" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="action-btn export-btn" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize attendance trend chart
+    const attendanceCtx = document.getElementById('attendanceChart').getContext('2d');
+    const attendanceChart = new Chart(attendanceCtx, {
+        type: 'line',
+        data: {
+            labels: {{ stats.attendance_trend.labels|tojson }},
+            datasets: [{
+                label: 'Attendance Rate',
+                data: {{ stats.attendance_trend.data|tojson }},
+                borderColor: 'rgba(66, 133, 244, 1)',
+                backgroundColor: 'rgba(66, 133, 244, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Initialize engagement distribution chart
+    const engagementCtx = document.getElementById('engagementChart').getContext('2d');
+    const engagementChart = new Chart(engagementCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['High', 'Medium', 'Low'],
+            datasets: [{
+                data: [
+                    {{ stats.engagement_levels.high|default(0) }},
+                    {{ stats.engagement_levels.medium|default(0) }},
+                    {{ stats.engagement_levels.low|default(0) }}
+                ],
+                backgroundColor: [
+                    'rgba(46, 204, 113, 0.8)',
+                    'rgba(241, 196, 15, 0.8)',
+                    'rgba(231, 76, 60, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(46, 204, 113, 1)',
+                    'rgba(241, 196, 15, 1)',
+                    'rgba(231, 76, 60, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Initialize class comparison chart
+    const classComparisonCtx = document.getElementById('classComparisonChart').getContext('2d');
+    const classComparisonChart = new Chart(classComparisonCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Computer Science 101', 'Machine Learning 202', 'Database Systems 301'],
+            datasets: [{
+                label: 'Attendance Rate',
+                data: [85, 83, 78],
+                backgroundColor: 'rgba(66, 133, 244, 0.8)',
+                borderColor: 'rgba(66, 133, 244, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Initialize demographics chart
+    const demographicsCtx = document.getElementById('demographicsChart').getContext('2d');
+    const demographicsChart = new Chart(demographicsCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Male', 'Female'],
+            datasets: [{
+                data: [
+                    {{ stats.demographics.gender.male|default(0) }},
+                    {{ stats.demographics.gender.female|default(0) }}
+                ],
+                backgroundColor: [
+                    'rgba(54, 162, 235, 0.8)',
+                    'rgba(255, 99, 132, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(255, 99, 132, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Change demographic chart data based on selection
+    document.getElementById('demographicType').addEventListener('change', function() {
+        let labels, data, colors;
+        
+        if (this.value === 'gender') {
+            labels = ['Male', 'Female'];
+            data = [{{ stats.demographics.gender.male|default(0) }}, {{ stats.demographics.gender.female|default(0) }}];
+            colors = {
+                bg: ['rgba(54, 162, 235, 0.8)', 'rgba(255, 99, 132, 0.8)'],
+                border: ['rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)']
+            };
+        } else {
+            labels = ['18-20', '21-23', '24+'];
+            data = [
+                {{ stats.demographics.age['18-20']|default(0) }},
+                {{ stats.demographics.age['21-23']|default(0) }},
+                {{ stats.demographics.age['24+']|default(0) }}
+            ];
+            colors = {
+                bg: ['rgba(75, 192, 192, 0.8)', 'rgba(153, 102, 255, 0.8)', 'rgba(255, 159, 64, 0.8)'],
+                border: ['rgba(75, 192, 192, 1)', 'rgba(153, 102, 255, 1)', 'rgba(255, 159, 64, 1)']
+            };
+        }
+        
+        demographicsChart.data.labels = labels;
+        demographicsChart.data.datasets[0].data = data;
+        demographicsChart.data.datasets[0].backgroundColor = colors.bg;
+        demographicsChart.data.datasets[0].borderColor = colors.border;
+        demographicsChart.update();
+    });
+
+    // Change comparison metric
+    document.getElementById('comparisonMetric').addEventListener('change', function() {
+        if (this.value === 'attendance') {
+            classComparisonChart.data.datasets[0].label = 'Attendance Rate';
+            classComparisonChart.data.datasets[0].data = [85, 83, 78];
+        } else {
+            classComparisonChart.data.datasets[0].label = 'Engagement Level';
+            classComparisonChart.data.datasets[0].data = [75, 81, 68];
+        }
+        classComparisonChart.update();
+    });
+
+    // Tab switching functionality
+    document.querySelectorAll('.tab-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            // Remove active class from all buttons and panes
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            
+            // Add active class to clicked button
+            this.classList.add('active');
+            
+            // Show corresponding pane
+            const tabId = this.getAttribute('data-tab') + 'Tab';
+            document.getElementById(tabId).classList.add('active');
+        });
+    });
+
+    // Class filter functionality
+    document.getElementById('classFilter').addEventListener('change', function() {
+        const classId = this.value;
+        // This would normally trigger an AJAX request to get filtered data
+        console.log('Filter by class ID:', classId);
+        // For demonstration, we'll just log the value
+    });
+
+    // Date range filter
+    document.getElementById('applyDateFilter').addEventListener('click', function() {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        
+        if (!startDate || !endDate) {
+            alert('Please select both start and end dates');
+            return;
+        }
+        
+        // This would normally trigger an AJAX request to get filtered data
+        console.log('Filter by date range:', startDate, 'to', endDate);
+        // For demonstration, we'll just log the values
+    });
+
+    // Export data button
+    document.getElementById('exportDataBtn').addEventListener('click', function() {
+        // This would normally trigger export functionality
+        alert('Exporting data...');
+        // For demonstration, we'll just show an alert
+    });
+});
+</script>
+{% endblock %} 

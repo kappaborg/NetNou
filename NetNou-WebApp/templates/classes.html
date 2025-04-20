@@ -1,0 +1,162 @@
+{% extends "layout.html" %}
+
+{% block title %}NetNou - Classes{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Manage Classes</h1>
+    <div class="page-actions">
+        <button id="addClassBtn" class="btn btn-primary add-class-btn">
+            <i class="fas fa-plus"></i> Add New Class
+        </button>
+    </div>
+</div>
+
+<div class="classes-list">
+    <div class="class-filters">
+        <input type="text" class="search-input" placeholder="Search classes...">
+        <select class="form-select">
+            <option value="all">All Semesters</option>
+            <option value="current">Current Semester</option>
+            <option value="previous">Previous Semester</option>
+        </select>
+    </div>
+    
+    {% if classes %}
+        <div class="classes-grid">
+            {% for class in classes %}
+                <div class="class-card">
+                    <div class="class-header">
+                        <h3>{{ class.name }}</h3>
+                        <span class="class-code">{{ class.code }}</span>
+                    </div>
+                    <p class="class-description">{{ class.description }}</p>
+                    <div class="class-stats">
+                        <div class="stat">
+                            <span class="stat-value">{{ class.student_count|default(0) }}</span>
+                            <span class="stat-label">Students</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value">{{ class.attendance_rate|default('0%') }}</span>
+                            <span class="stat-label">Attendance</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value">{{ class.engagement_score|default('0%') }}</span>
+                            <span class="stat-label">Engagement</span>
+                        </div>
+                    </div>
+                    <div class="class-actions">
+                        <a href="{{ url_for('web.class_detail', class_id=class.id) }}" class="btn-primary">View Details</a>
+                        <a href="{{ url_for('web.take_attendance', class_id=class.id) }}" class="btn-secondary">Take Attendance</a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="no-data">
+            <div class="no-data-icon">
+                <i class="fas fa-book"></i>
+            </div>
+            <p>No classes found. Start by creating a new class.</p>
+            <button id="createFirstClassBtn" class="primary-btn">Create Your First Class</button>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Add Class Modal -->
+<div id="addClassModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add New Class</h3>
+            <button class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="addClassForm" action="{{ url_for('web.add_class') }}" method="POST">
+                <div class="form-group">
+                    <label for="className">Class Name</label>
+                    <input type="text" id="className" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="classCode">Class Code</label>
+                    <input type="text" id="classCode" name="code" required>
+                </div>
+                <div class="form-group">
+                    <label for="classDescription">Description</label>
+                    <textarea id="classDescription" name="description" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="classSchedule">Schedule</label>
+                    <input type="text" id="classSchedule" name="schedule" placeholder="e.g. Mon, Wed 10:00-11:30">
+                </div>
+                <div class="form-group">
+                    <label for="semester">Semester</label>
+                    <select id="semester" name="semester" class="form-select">
+                        <option value="current">Current Semester</option>
+                        <option value="next">Next Semester</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="secondary-btn cancel-modal">Cancel</button>
+                    <button type="submit" class="primary-btn">Create Class</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal functionality
+    const modal = document.getElementById('addClassModal');
+    const addClassBtn = document.getElementById('addClassBtn');
+    const createFirstClassBtn = document.getElementById('createFirstClassBtn');
+    const closeModal = document.querySelector('.close-modal');
+    const cancelModal = document.querySelector('.cancel-modal');
+    
+    function openModal() {
+        modal.style.display = 'block';
+        document.body.classList.add('modal-open');
+    }
+    
+    function closeModalFunc() {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+    
+    if (addClassBtn) addClassBtn.addEventListener('click', openModal);
+    if (createFirstClassBtn) createFirstClassBtn.addEventListener('click', openModal);
+    if (closeModal) closeModal.addEventListener('click', closeModalFunc);
+    if (cancelModal) cancelModal.addEventListener('click', closeModalFunc);
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', function(event) {
+        if (event.target === modal) {
+            closeModalFunc();
+        }
+    });
+    
+    // Search functionality
+    const searchInput = document.querySelector('.search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const classCards = document.querySelectorAll('.class-card');
+            
+            classCards.forEach(card => {
+                const className = card.querySelector('h3').textContent.toLowerCase();
+                const classCode = card.querySelector('.class-code').textContent.toLowerCase();
+                const classDescription = card.querySelector('.class-description').textContent.toLowerCase();
+                
+                if (className.includes(searchTerm) || classCode.includes(searchTerm) || classDescription.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    }
+});
+</script>
+{% endblock %} 

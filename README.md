@@ -26,9 +26,31 @@ A powerful real-time face analysis system that leverages computer vision and neu
 │   ├── scratch_nn/                # Neural network implementation
 │   │   ├── simple_nn.py           # Neural network built from scratch with NumPy
 │   │   └── train_engagement_nn.py # Training script for the engagement model
-│   └── emotion_recognition/       # Additional emotion analysis tools
+│   ├── emotion_recognition/       # Additional emotion analysis tools
+│   └── performance_test.py        # Performance testing script
 ├── NetNou-WebApp/                 # Web application module
-│   └── (Flask application files)
+│   ├── app.py                     # Flask application initialization
+│   ├── run.py                     # Application entry point
+│   ├── main.py                    # Main application logic
+│   ├── config.py                  # Application configuration
+│   ├── static/                    # Static assets (CSS, JS, images)
+│   ├── templates/                 # HTML templates
+│   ├── src/                       # Source code
+│   │   ├── analysis/              # Analysis modules
+│   │   ├── auth/                  # Authentication services
+│   │   ├── controllers/           # Application controllers
+│   │   ├── core/                  # Core functionality
+│   │   │   └── nn/                # Neural network implementation
+│   │   ├── database/              # Database models and connections
+│   │   ├── routes/                # API and web routes
+│   │   ├── schemas/               # Data schemas
+│   │   ├── services/              # Business logic services
+│   │   │   └── face_service.py    # Face detection and analysis
+│   │   └── utils/                 # Utility functions
+│   ├── models/                    # Model weights and configurations
+│   └── visualization/             # Data visualization tools
+├── run_netnou.sh                  # Unix shell script to run the application
+├── run_netnou.bat                 # Windows batch script to run the application
 └── requirements.txt               # Project dependencies
 ```
 
@@ -40,8 +62,8 @@ A powerful real-time face analysis system that leverages computer vision and neu
 
 2. **Clone the Repository**:
    ```bash
-   git clone https://github.com/yourusername/ai-student-attendance-system.git
-   cd ai-student-attendance-system
+   git clone https://github.com/kappaborg/NetNou.git
+   cd NetNou
    ```
 
 3. **Create a Virtual Environment** (recommended):

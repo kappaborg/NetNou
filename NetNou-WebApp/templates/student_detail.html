@@ -1,0 +1,533 @@
+{% extends "layout.html" %}
+
+{% block title %}NetNou - Student Profile{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Student Profile</h1>
+    <div class="page-actions">
+        <button id="editStudentBtn" class="btn btn-outline">
+            <i class="fas fa-edit"></i> Edit Profile
+        </button>
+        <button id="registerFaceBtn" class="btn btn-primary">
+            <i class="fas fa-camera"></i> Register Face
+        </button>
+    </div>
+</div>
+
+<div class="student-profile">
+    <div class="student-header">
+        <div class="student-avatar">
+            {% if student.profile_image %}
+                <img src="{{ student.profile_image }}" alt="{{ student.name }}">
+            {% else %}
+                <i class="fas fa-user"></i>
+            {% endif %}
+        </div>
+        <div class="student-info">
+            <h2>{{ student.name }}</h2>
+            <p>ID: {{ student.id }}</p>
+            <p>{{ student.email }}</p>
+        </div>
+    </div>
+    
+    <div class="student-metadata">
+        <div class="metadata-item">
+            <span class="metadata-label">Department</span>
+            <span class="metadata-value">{{ student.department|default('N/A') }}</span>
+        </div>
+        <div class="metadata-item">
+            <span class="metadata-label">Year/Semester</span>
+            <span class="metadata-value">{{ student.year|default('N/A') }} / {{ student.semester|default('N/A') }}</span>
+        </div>
+        <div class="metadata-item">
+            <span class="metadata-label">Registration Date</span>
+            <span class="metadata-value">{{ student.registration_date|default('N/A') }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="analytics-row">
+    <div class="analytics-card">
+        <div class="card-header">
+            <h3>Attendance Overview</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="attendanceChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="analytics-card">
+        <div class="card-header">
+            <h3>Engagement Levels</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="engagementChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="enrolled-classes">
+    <div class="section-header">
+        <h2>Enrolled Classes</h2>
+    </div>
+    
+    {% if student.classes %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Class Code</th>
+                    <th>Class Name</th>
+                    <th>Attendance Rate</th>
+                    <th>Engagement</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for class in student.classes %}
+                    <tr>
+                        <td>{{ class.code }}</td>
+                        <td>{{ class.name }}</td>
+                        <td>{{ class.attendance_rate|default('0%') }}</td>
+                        <td>{{ class.engagement_level|default('N/A') }}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="{{ url_for('web.class_detail', class_id=class.id) }}" class="action-btn view-btn" title="View Class">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{{ url_for('web.take_attendance', class_id=class.id) }}" class="action-btn register-btn" title="Take Attendance">
+                                    <i class="fas fa-camera"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="no-data small">
+            <p>This student is not enrolled in any classes.</p>
+        </div>
+    {% endif %}
+</div>
+
+<div class="attendance-history">
+    <div class="section-header">
+        <h2>Recent Attendance</h2>
+        <a href="#" class="text-link">View Full History</a>
+    </div>
+    
+    {% if student.attendance_records %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Class</th>
+                    <th>Status</th>
+                    <th>Time</th>
+                    <th>Engagement</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in student.attendance_records %}
+                    <tr>
+                        <td>{{ record.date }}</td>
+                        <td>{{ record.class_name }}</td>
+                        <td>
+                            {% if record.status == 'present' %}
+                                <span class="status-tag status-success">Present</span>
+                            {% elif record.status == 'late' %}
+                                <span class="status-tag status-warning">Late</span>
+                            {% else %}
+                                <span class="status-tag status-error">Absent</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ record.time|default('-') }}</td>
+                        <td>{{ record.engagement_level|default('N/A') }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="no-data small">
+            <p>No attendance records found for this student.</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Face Registration Modal -->
+<div id="faceRegistrationModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Register Face</h3>
+            <button class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="camera-container">
+                <video id="webcam" autoplay playsinline></video>
+                <div class="camera-overlay">
+                    <div class="face-guide"></div>
+                </div>
+                <div class="camera-instructions">
+                    <p>Position your face within the guide and look directly at the camera.</p>
+                </div>
+            </div>
+            <div class="camera-controls">
+                <button id="captureBtn" class="primary-btn">
+                    <i class="fas fa-camera"></i> Capture
+                </button>
+                <button id="resetBtn" class="secondary-btn" disabled>
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+            </div>
+            <div class="registration-status">
+                <div id="capturedImage" class="captured-image-container" style="display: none;">
+                    <img id="previewImage" src="" alt="Captured face">
+                </div>
+                <div id="statusMessage" class="status-message"></div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="secondary-btn cancel-modal">Cancel</button>
+                <button id="registerFaceSubmit" class="primary-btn" disabled>Register Face</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Student Modal -->
+<div id="editStudentModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Edit Student Information</h3>
+            <button class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editStudentForm" action="{{ url_for('web.update_student', student_id=student.id) }}" method="POST">
+                <div class="form-group">
+                    <label for="studentName">Full Name</label>
+                    <input type="text" id="studentName" name="name" value="{{ student.name }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="studentEmail">Email</label>
+                    <input type="email" id="studentEmail" name="email" value="{{ student.email }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="studentDepartment">Department</label>
+                    <input type="text" id="studentDepartment" name="department" value="{{ student.department|default('') }}">
+                </div>
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label for="studentYear">Year</label>
+                        <select id="studentYear" name="year" class="form-select">
+                            <option value="1" {% if student.year == '1' %}selected{% endif %}>Year 1</option>
+                            <option value="2" {% if student.year == '2' %}selected{% endif %}>Year 2</option>
+                            <option value="3" {% if student.year == '3' %}selected{% endif %}>Year 3</option>
+                            <option value="4" {% if student.year == '4' %}selected{% endif %}>Year 4</option>
+                        </select>
+                    </div>
+                    <div class="form-group half">
+                        <label for="studentSemester">Semester</label>
+                        <select id="studentSemester" name="semester" class="form-select">
+                            <option value="1" {% if student.semester == '1' %}selected{% endif %}>Semester 1</option>
+                            <option value="2" {% if student.semester == '2' %}selected{% endif %}>Semester 2</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="secondary-btn cancel-modal">Cancel</button>
+                    <button type="submit" class="primary-btn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize attendance chart
+    const attendanceCtx = document.getElementById('attendanceChart').getContext('2d');
+    const attendanceChart = new Chart(attendanceCtx, {
+        type: 'line',
+        data: {
+            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6', 'Week 7', 'Week 8'],
+            datasets: [{
+                label: 'Attendance Rate',
+                data: [100, 100, 80, 100, 60, 80, 100, 90],
+                borderColor: 'rgba(66, 133, 244, 1)',
+                backgroundColor: 'rgba(66, 133, 244, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Initialize engagement chart
+    const engagementCtx = document.getElementById('engagementChart').getContext('2d');
+    const engagementChart = new Chart(engagementCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['High', 'Medium', 'Low'],
+            datasets: [{
+                data: [65, 25, 10],
+                backgroundColor: [
+                    'rgba(46, 204, 113, 0.8)',
+                    'rgba(241, 196, 15, 0.8)',
+                    'rgba(231, 76, 60, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(46, 204, 113, 1)',
+                    'rgba(241, 196, 15, 1)',
+                    'rgba(231, 76, 60, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right'
+                }
+            }
+        }
+    });
+
+    // Face registration modal
+    const registerFaceBtn = document.getElementById('registerFaceBtn');
+    const faceRegistrationModal = document.getElementById('faceRegistrationModal');
+    const closeButtons = document.querySelectorAll('.close-modal');
+    const cancelButtons = document.querySelectorAll('.cancel-modal');
+    
+    if (registerFaceBtn) {
+        registerFaceBtn.addEventListener('click', function() {
+            faceRegistrationModal.style.display = 'block';
+            document.body.classList.add('modal-open');
+            
+            // Request camera access
+            setupWebcam();
+        });
+    }
+    
+    // Edit student modal
+    const editStudentBtn = document.getElementById('editStudentBtn');
+    const editStudentModal = document.getElementById('editStudentModal');
+    
+    if (editStudentBtn) {
+        editStudentBtn.addEventListener('click', function() {
+            editStudentModal.style.display = 'block';
+            document.body.classList.add('modal-open');
+        });
+    }
+    
+    // Close modals
+    function closeModals() {
+        faceRegistrationModal.style.display = 'none';
+        editStudentModal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+        
+        // Stop webcam if active
+        const video = document.getElementById('webcam');
+        if (video && video.srcObject) {
+            const tracks = video.srcObject.getTracks();
+            tracks.forEach(track => track.stop());
+            video.srcObject = null;
+        }
+    }
+    
+    closeButtons.forEach(button => {
+        button.addEventListener('click', closeModals);
+    });
+    
+    cancelButtons.forEach(button => {
+        button.addEventListener('click', closeModals);
+    });
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', function(event) {
+        if (event.target === faceRegistrationModal || event.target === editStudentModal) {
+            closeModals();
+        }
+    });
+    
+    // Webcam setup for face registration
+    function setupWebcam() {
+        const video = document.getElementById('webcam');
+        const captureBtn = document.getElementById('captureBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const registerFaceSubmit = document.getElementById('registerFaceSubmit');
+        const capturedImage = document.getElementById('capturedImage');
+        const previewImage = document.getElementById('previewImage');
+        const statusMessage = document.getElementById('statusMessage');
+        
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                    statusMessage.textContent = 'Camera active. Position your face in the center.';
+                })
+                .catch(function(error) {
+                    statusMessage.textContent = 'Error accessing camera: ' + error.message;
+                });
+        } else {
+            statusMessage.textContent = 'Your browser does not support camera access.';
+        }
+        
+        // Capture button
+        if (captureBtn) {
+            captureBtn.addEventListener('click', function() {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const imageData = canvas.toDataURL('image/png');
+                previewImage.src = imageData;
+                capturedImage.style.display = 'block';
+                
+                // Enable the reset and register buttons
+                resetBtn.disabled = false;
+                registerFaceSubmit.disabled = false;
+                
+                statusMessage.textContent = 'Face captured! Click "Register Face" to proceed or "Reset" to try again.';
+            });
+        }
+        
+        // Reset button
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function() {
+                capturedImage.style.display = 'none';
+                resetBtn.disabled = true;
+                registerFaceSubmit.disabled = true;
+                statusMessage.textContent = 'Ready to capture. Position your face in the center.';
+            });
+        }
+        
+        // Register face button
+        if (registerFaceSubmit) {
+            registerFaceSubmit.addEventListener('click', function() {
+                statusMessage.textContent = 'Registering face...';
+                
+                // In a real app, this would make an API call to register the face
+                // For demo, we'll just simulate a successful registration
+                setTimeout(function() {
+                    statusMessage.textContent = 'Face registered successfully!';
+                    
+                    // In a real app, we would close the modal and refresh the student profile
+                    setTimeout(function() {
+                        closeModals();
+                    }, 1500);
+                }, 2000);
+            });
+        }
+    }
+});
+</script>
+
+<style>
+.form-row {
+    display: flex;
+    gap: 20px;
+}
+
+.form-group.half {
+    flex: 1;
+}
+
+.camera-container {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto 20px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.camera-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.face-guide {
+    width: 200px;
+    height: 200px;
+    border: 2px dashed rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+}
+
+.camera-controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.camera-instructions {
+    margin-bottom: 15px;
+    text-align: center;
+    color: var(--text-medium);
+    font-size: 14px;
+}
+
+#webcam {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.registration-status {
+    margin-bottom: 20px;
+}
+
+.captured-image-container {
+    width: 150px;
+    height: 150px;
+    margin: 0 auto 15px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid var(--primary-color);
+}
+
+.captured-image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.status-message {
+    text-align: center;
+    padding: 10px;
+    color: var(--text-medium);
+    font-size: 14px;
+}
+</style>
+{% endblock %} 

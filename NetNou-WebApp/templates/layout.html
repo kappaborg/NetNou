@@ -3,10 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}NetNou{% endblock %}</title>
+    <title>{% block title %}NetNou - AI Student Attendance & Engagement{% endblock %}</title>
     
     <!-- Browser caching for CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=1.2">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Preload critical assets -->
     <link rel="preload" href="{{ url_for('static', filename='css/style.css') }}" as="style">
@@ -21,50 +24,86 @@
     
     {% block styles %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}">
-    {% if not hide_header %}
-    <div class="dashboard-container">
-        <header>
-            <h1>{% block header_title %}NetNou{% endblock %}</h1>
-            <div class="user-actions">
-                {% if session.user %}
-                <a href="{{ url_for('web.logout') }}" class="logout-btn">Logout</a>
+<body class="{% if request.endpoint == 'web.login' %}login-page{% endif %} {% block body_class %}{% endblock %}">
+    {% if request.endpoint != 'web.login' %}
+    <header class="app-header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-container">
+                    <h1>NetNou</h1>
+                </div>
+                
+                {% if current_user.is_authenticated %}
+                <div class="user-profile">
+                    <span class="username">{{ current_user.username }}</span>
+                    <a href="{{ url_for('web.logout') }}" class="btn btn-outline">Logout</a>
+                </div>
                 {% endif %}
             </div>
-        </header>
-        
-        {% if session.user %}
-        <nav class="main-nav">
+        </div>
+    </header>
+    
+    {% if current_user.is_authenticated %}
+    <nav class="main-nav">
+        <div class="container">
             <ul>
-                <li><a href="{{ url_for('web.dashboard') }}" {% if request.endpoint == 'web.dashboard' %}class="active"{% endif %}>Dashboard</a></li>
-                <li><a href="{{ url_for('web.students') }}" {% if request.endpoint == 'web.students' %}class="active"{% endif %}>Students</a></li>
-                <li><a href="{{ url_for('web.take_attendance') }}" {% if request.endpoint == 'web.take_attendance' %}class="active"{% endif %}>Take Attendance</a></li>
+                <li><a href="{{ url_for('web.dashboard') }}" {% if request.endpoint == 'web.dashboard' %}class="active"{% endif %}><i class="fas fa-chart-line"></i> Dashboard</a></li>
+                <li><a href="{{ url_for('web.classes') }}" {% if request.endpoint == 'web.classes' %}class="active"{% endif %}><i class="fas fa-users"></i> Classes</a></li>
+                <li><a href="{{ url_for('web.students') }}" {% if request.endpoint == 'web.students' %}class="active"{% endif %}><i class="fas fa-user-graduate"></i> Students</a></li>
+                <li><a href="{{ url_for('web.attendance') }}" {% if request.endpoint == 'web.attendance' %}class="active"{% endif %}><i class="fas fa-clipboard-check"></i> Attendance</a></li>
+                <li><a href="{{ url_for('web.analytics') }}" {% if request.endpoint == 'web.analytics' %}class="active"{% endif %}><i class="fas fa-chart-pie"></i> Analytics</a></li>
             </ul>
-        </nav>
-        {% endif %}
-        
-        <main>
+        </div>
+    </nav>
+    {% endif %}
+    {% endif %}
+    
+    {% if request.endpoint == 'web.login' %}
+        {% block full_content %}{% endblock %}
+    {% else %}
+    <main class="app-main">
+        <div class="container">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
-                    <div class="flash-messages">
-                        {% for category, message in messages %}
-                            <div class="flash-message {{ category }}">
-                                {{ message }}
-                            </div>
-                        {% endfor %}
-                    </div>
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            <span>{{ message }}</span>
+                            <button class="close-btn">&times;</button>
+                        </div>
+                    {% endfor %}
                 {% endif %}
             {% endwith %}
             
             {% block content %}{% endblock %}
-        </main>
-    </div>
-    {% else %}
-        {% block full_content %}{% endblock %}
+        </div>
+    </main>
+    
+    <footer class="app-footer">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; {{ now.year }} NetNou. All rights reserved.</p>
+                <div class="footer-links">
+                    <a href="#">About</a>
+                    <a href="#">Help</a>
+                    <a href="#">Privacy</a>
+                    <a href="#">Terms</a>
+                </div>
+            </div>
+        </div>
+    </footer>
     {% endif %}
-
+    
+    <script>
+        // Close alert messages
+        document.querySelectorAll('.alert .close-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                this.parentElement.style.display = 'none';
+            });
+        });
+    </script>
+    
     <!-- Load common JavaScript -->
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=1.0" defer></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=1.1" defer></script>
     
     <!-- Load page-specific JavaScript -->
     {% block scripts %}{% endblock %}
@@ -95,6 +134,18 @@
                         return;
                     }
                 }
+            });
+            
+            // Close flash messages
+            const closeButtons = document.querySelectorAll('.flash-message .close-btn');
+            closeButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const flashMessage = this.parentElement;
+                    flashMessage.classList.add('fade-out');
+                    setTimeout(() => {
+                        flashMessage.remove();
+                    }, 500);
+                });
             });
         });
     </script>

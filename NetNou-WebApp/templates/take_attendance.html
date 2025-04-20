@@ -2,84 +2,349 @@
 
 {% block title %}NetNou - Take Attendance{% endblock %}
 
-{% block header_title %}Take Attendance{% endblock %}
-
-{% block body_class %}dashboard-page{% endblock %}
-
 {% block content %}
-<section class="attendance-section">
-    <div class="section-header">
-        <h2>Face Recognition Attendance</h2>
+<div class="page-header">
+    <h1>Take Attendance</h1>
+    <div class="page-actions">
+        <a href="{{ url_for('web.attendance') }}" class="btn btn-outline">
+            <i class="fas fa-arrow-left"></i> Back to Attendance
+        </a>
     </div>
-    
+</div>
+
+{% if selected_class %}
     <div class="attendance-setup">
-        <div class="form-group">
-            <label for="classSelect">Select Class:</label>
-            <select id="classSelect" class="form-control">
-                <option value="">-- Select a class --</option>
-                {% for class in classes %}
-                    <option value="{{ class.id }}">{{ class.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        
-        <div class="button-group">
-            <button id="startCamera" class="primary-btn" disabled>Start Camera</button>
-            <button id="captureBtn" class="secondary-btn" disabled>Capture</button>
-            <button id="stopCamera" class="danger-btn" disabled>Stop Camera</button>
-        </div>
-    </div>
-    
-    <div class="camera-container">
-        <div class="video-container">
-            <video id="webcam" autoplay playsinline></video>
-            <canvas id="canvas" style="display: none;"></canvas>
-        </div>
-        
-        <div class="attendance-results">
-            <h3>Recognition Results</h3>
-            <div id="results" class="results-container">
-                <p class="placeholder-text">Captured students will appear here</p>
+        <div class="card">
+            <div class="class-header">
+                <h2>{{ selected_class.name }}</h2>
+                <span class="class-code">{{ selected_class.code }}</span>
             </div>
             
-            <div class="attendance-summary">
-                <h4>Summary</h4>
-                <p>Total Identified: <span id="identifiedCount">0</span></p>
-                <p>Total Unknown: <span id="unknownCount">0</span></p>
+            <div class="attendance-tabs">
+                <div class="tab-header">
+                    <button class="tab-btn active" data-tab="face-recognition">Face Recognition</button>
+                    <button class="tab-btn" data-tab="manual">Manual Entry</button>
+                </div>
+                
+                <div class="tab-content">
+                    <!-- Face Recognition Tab -->
+                    <div class="tab-pane active" id="face-recognition">
+                        <div class="attendance-mode-container">
+                            <div class="mode-buttons">
+                                <button class="mode-btn active" data-mode="single">Single Student</button>
+                                <button class="mode-btn" data-mode="group">Group Photo</button>
+                                <button class="mode-btn" data-mode="live">Live Camera</button>
+                                <button class="mode-btn" data-mode="register">Register Face</button>
+                            </div>
+                            
+                            <div class="mode-content">
+                                <!-- Single Student Mode -->
+                                <div class="mode-pane active" id="single-mode">
+                                    <div class="camera-container">
+                                        <video id="webcam" autoplay playsinline></video>
+                                        <div class="camera-overlay">
+                                            <div class="face-guide"></div>
+                                        </div>
+                                        <canvas id="canvas" style="display: none;"></canvas>
+                                        <div id="capturedImage" class="captured-image-container" style="display: none;">
+                                            <img id="previewImage" src="" alt="Captured face">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="camera-controls">
+                                        <button id="startCameraBtn" type="button" class="btn btn-outline">
+                                            <i class="fas fa-video"></i> Start Camera
+                                        </button>
+                                        <button id="captureBtn" type="button" class="btn btn-primary" disabled>
+                                            <i class="fas fa-camera"></i> Capture
+                                        </button>
+                                        <button id="retakeBtn" type="button" class="btn btn-outline" style="display: none;">
+                                            <i class="fas fa-redo"></i> Retake
+                                        </button>
+                                    </div>
+                                    
+                                    <div id="singleStatus" class="status-message"></div>
+                                    
+                                    <div id="identificationResult" class="identification-result" style="display: none;">
+                                        <h3>Identification Result</h3>
+                                        <div id="resultContent"></div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Group Photo Mode -->
+                                <div class="mode-pane" id="group-mode">
+                                    <div class="camera-container">
+                                        <video id="groupWebcam" autoplay playsinline></video>
+                                        <canvas id="groupCanvas" style="display: none;"></canvas>
+                                        <div id="groupCapturedImage" class="captured-image-container" style="display: none;">
+                                            <img id="groupPreviewImage" src="" alt="Captured group photo">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="camera-controls">
+                                        <button id="startGroupCameraBtn" type="button" class="btn btn-outline">
+                                            <i class="fas fa-video"></i> Start Camera
+                                        </button>
+                                        <button id="captureGroupBtn" type="button" class="btn btn-primary" disabled>
+                                            <i class="fas fa-camera"></i> Capture Group
+                                        </button>
+                                        <button id="retakeGroupBtn" type="button" class="btn btn-outline" style="display: none;">
+                                            <i class="fas fa-redo"></i> Retake
+                                        </button>
+                                    </div>
+                                    
+                                    <div id="groupStatus" class="status-message"></div>
+                                    
+                                    <form id="groupAttendanceForm" action="{{ url_for('web.take_attendance_live', class_id=selected_class.id) }}" method="POST">
+                                        <input type="hidden" id="groupImageData" name="image_data">
+                                        <button type="submit" id="submitGroupBtn" class="btn btn-primary" disabled>
+                                            <i class="fas fa-save"></i> Record Group Attendance
+                                        </button>
+                                    </form>
+                                </div>
+                                
+                                <!-- Live Camera Mode -->
+                                <div class="mode-pane" id="live-mode">
+                                    <div class="camera-container live-camera">
+                                        <video id="liveWebcam" autoplay playsinline></video>
+                                        <canvas id="liveOverlay"></canvas>
+                                        <div id="recognitionStatus" class="recognition-status">Not active</div>
+                                    </div>
+                                    
+                                    <div class="camera-controls">
+                                        <button id="startLiveCameraBtn" type="button" class="btn btn-outline">
+                                            <i class="fas fa-video"></i> Start Live Recognition
+                                        </button>
+                                        <button id="stopLiveCameraBtn" type="button" class="btn btn-outline" disabled>
+                                            <i class="fas fa-stop"></i> Stop Recognition
+                                        </button>
+                                    </div>
+                                    
+                                    <div id="liveStatus" class="status-message"></div>
+                                    
+                                    <div id="liveResults" class="live-results">
+                                        <h3>Recognition Results</h3>
+                                        <div id="liveResultsList" class="live-results-list"></div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Register Face Mode -->
+                                <div class="mode-pane" id="register-mode">
+                                    <div class="camera-container">
+                                        <video id="registerWebcam" autoplay playsinline></video>
+                                        <div class="camera-overlay">
+                                            <div class="face-guide"></div>
+                                        </div>
+                                        <canvas id="registerCanvas" style="display: none;"></canvas>
+                                        <div id="registerCapturedImage" class="captured-image-container" style="display: none;">
+                                            <img id="registerPreviewImage" src="" alt="Captured face">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="camera-controls">
+                                        <button id="startRegisterCameraBtn" type="button" class="btn btn-outline">
+                                            <i class="fas fa-video"></i> Start Camera
+                                        </button>
+                                        <button id="captureRegisterBtn" type="button" class="btn btn-primary" disabled>
+                                            <i class="fas fa-camera"></i> Capture
+                                        </button>
+                                        <button id="retakeRegisterBtn" type="button" class="btn btn-outline" style="display: none;">
+                                            <i class="fas fa-redo"></i> Retake
+                                        </button>
+                                    </div>
+                                    
+                                    <div id="registerStatus" class="status-message"></div>
+                                    
+                                    <div class="register-form">
+                                        <div class="form-group">
+                                            <label for="registerSelect">Select Existing Student or New</label>
+                                            <select id="registerSelect" class="form-select">
+                                                <option value="new">Add New Student</option>
+                                                <option value="existing">Select Existing Student</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div id="existingStudentForm" style="display: none;">
+                                            <div class="form-group">
+                                                <label for="studentSelect">Select Student</label>
+                                                <select id="existingStudentSelect" name="student_id" class="form-select" required>
+                                                    <option value="">Select a student</option>
+                                                    {% for student in students %}
+                                                        <option value="{{ student.id }}">{{ student.first_name }} {{ student.last_name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div id="newStudentForm">
+                                            <div class="form-group">
+                                                <label for="registerFirstName">First Name</label>
+                                                <input type="text" id="registerFirstName" name="first_name" required>
+                                            </div>
+                                            
+                                            <div class="form-group">
+                                                <label for="registerLastName">Last Name</label>
+                                                <input type="text" id="registerLastName" name="last_name" required>
+                                            </div>
+                                            
+                                            <div class="form-group">
+                                                <label for="registerEmail">Email</label>
+                                                <input type="email" id="registerEmail" name="email" required>
+                                            </div>
+                                            
+                                            <div class="form-group">
+                                                <label for="registerGender">Gender</label>
+                                                <select id="registerGender" name="gender" class="form-select">
+                                                    <option value="Male">Male</option>
+                                                    <option value="Female">Female</option>
+                                                    <option value="Other">Other</option>
+                                                    <option value="Prefer not to say">Prefer not to say</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="form-group">
+                                                <label for="registerDateOfBirth">Date of Birth</label>
+                                                <input type="date" id="registerDateOfBirth" name="date_of_birth">
+                                            </div>
+                                        </div>
+                                        
+                                        <input type="hidden" id="registerImageData" name="face_image">
+                                        
+                                        <div class="form-actions">
+                                            <button type="button" id="registerFaceBtn" class="btn btn-primary" disabled>
+                                                <i class="fas fa-save"></i> Register Face
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="registrationResult" class="identification-result" style="display: none;">
+                                        <h3>Registration Result</h3>
+                                        <div id="registrationResultContent"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Manual Entry Tab -->
+                    <div class="tab-pane" id="manual">
+                        <div class="manual-attendance">
+                            <form id="manualAttendanceForm" action="{{ url_for('web.record_manual_attendance') }}" method="POST">
+                                <input type="hidden" name="class_id" value="{{ selected_class.id }}">
+                                
+                                <div class="form-group">
+                                    <label for="studentSelect">Select Student</label>
+                                    <select id="studentSelect" name="student_id" class="form-select" required>
+                                        <option value="">Select a student</option>
+                                        {% for student in students %}
+                                            <option value="{{ student.id }}">{{ student.first_name }} {{ student.last_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="attendanceStatus">Status</label>
+                                    <select id="attendanceStatus" name="status" class="form-select">
+                                        <option value="present">Present</option>
+                                        <option value="late">Late</option>
+                                        <option value="absent">Absent</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="notes">Notes (Optional)</label>
+                                    <textarea id="notes" name="notes" rows="3"></textarea>
+                                </div>
+                                
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Record Attendance
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</section>
+{% else %}
+    <div class="card">
+        <h3>Select a Class</h3>
+        <p>Please select a class to take attendance for:</p>
+        
+        <div class="class-list">
+            {% for class in classes %}
+                <a href="{{ url_for('web.take_attendance', class_id=class.id) }}" class="class-item">
+                    <div class="class-item-details">
+                        <h4>{{ class.name }}</h4>
+                        <span class="class-code">{{ class.code }}</span>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+{% if selected_class %}
 <script>
-    // DOM elements
-    const classSelect = document.getElementById('classSelect');
-    const startCameraBtn = document.getElementById('startCamera');
-    const captureBtn = document.getElementById('captureBtn');
-    const stopCameraBtn = document.getElementById('stopCamera');
+document.addEventListener('DOMContentLoaded', function() {
+    // Tab Switching
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Deactivate all tabs
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabPanes.forEach(pane => pane.classList.remove('active'));
+            
+            // Activate clicked tab
+            button.classList.add('active');
+            const tabId = button.getAttribute('data-tab');
+            document.getElementById(tabId).classList.add('active');
+        });
+    });
+    
+    // Mode Switching
+    const modeButtons = document.querySelectorAll('.mode-btn');
+    const modePanes = document.querySelectorAll('.mode-pane');
+    
+    modeButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Deactivate all modes
+            modeButtons.forEach(btn => btn.classList.remove('active'));
+            modePanes.forEach(pane => pane.classList.remove('active'));
+            
+            // Activate clicked mode
+            button.classList.add('active');
+            const modeId = button.getAttribute('data-mode') + '-mode';
+            document.getElementById(modeId).classList.add('active');
+        });
+    });
+    
+    // Single Mode Camera Setup
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('canvas');
-    const results = document.getElementById('results');
-    const identifiedCount = document.getElementById('identifiedCount');
-    const unknownCount = document.getElementById('unknownCount');
+    const captureBtn = document.getElementById('captureBtn');
+    const startCameraBtn = document.getElementById('startCameraBtn');
+    const retakeBtn = document.getElementById('retakeBtn');
+    const capturedImage = document.getElementById('capturedImage');
+    const previewImage = document.getElementById('previewImage');
+    const singleStatus = document.getElementById('singleStatus');
+    const identificationResult = document.getElementById('identificationResult');
+    const resultContent = document.getElementById('resultContent');
     
-    // Variables
-    let stream = null;
-    let identified = 0;
-    let unknown = 0;
-    let recordedStudents = new Set();
-    
-    // Enable start button when class is selected
-    classSelect.addEventListener('change', function() {
-        startCameraBtn.disabled = !this.value;
-    });
+    let singleStream = null;
     
     // Start camera
     startCameraBtn.addEventListener('click', async function() {
         try {
-            stream = await navigator.mediaDevices.getUserMedia({ 
+            singleStatus.textContent = 'Accessing camera...';
+            singleStream = await navigator.mediaDevices.getUserMedia({ 
                 video: { 
                     width: { ideal: 640 },
                     height: { ideal: 480 },
@@ -87,118 +352,792 @@
                 } 
             });
             
-            video.srcObject = stream;
-            
-            // Enable capture button, disable start button
-            captureBtn.disabled = false;
-            stopCameraBtn.disabled = false;
+            video.srcObject = singleStream;
             startCameraBtn.disabled = true;
-            classSelect.disabled = true;
-            
-            // Clear placeholder
-            results.innerHTML = '<p class="status-message">Camera started. Ready to capture faces.</p>';
-            
+            captureBtn.disabled = false;
+            singleStatus.textContent = 'Camera active. Position the face in the center.';
         } catch (err) {
+            singleStatus.textContent = 'Error accessing camera: ' + err.message;
             console.error('Error accessing camera:', err);
-            results.innerHTML = `<p class="error-message">Error: ${err.message}</p>`;
         }
     });
     
     // Capture image
     captureBtn.addEventListener('click', function() {
-        if (!stream) return;
+        if (!singleStream) return;
         
-        // Draw current video frame to canvas
-        const context = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // Convert to base64
-        const imageData = canvas.toDataURL('image/jpeg');
+        // Draw video frame to canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // Show processing message
-        results.innerHTML = '<p class="status-message">Processing image...</p>';
+        // Convert to base64 image
+        const imageData = canvas.toDataURL('image/jpeg', 0.9);
         
-        // Simulate API call (in a real app, send to server)
-        setTimeout(() => {
-            identifyFace(imageData);
-        }, 1000);
+        // Display the captured image
+        previewImage.src = imageData;
+        capturedImage.style.display = 'block';
+        video.style.display = 'none';
+        
+        // Show retake button
+        captureBtn.style.display = 'none';
+        retakeBtn.style.display = 'inline-block';
+        
+        singleStatus.textContent = 'Face captured! Identifying...';
+        
+        // Identify the face
+        identifyFace(imageData);
     });
     
-    // Stop camera
-    stopCameraBtn.addEventListener('click', function() {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            video.srcObject = null;
-            stream = null;
+    // Identify face
+    function identifyFace(imageData) {
+        // Show loading state
+        resultContent.innerHTML = '<div class="loading">Identifying face...</div>';
+        identificationResult.style.display = 'block';
+        
+        // Make API request to identify the face
+        fetch('/api/identify-face', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ image_data: imageData })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.identified) {
+                    // Record attendance if identified
+                    fetch('/api/record-attendance', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            class_id: '{{ selected_class.id }}',
+                            student_id: data.student_id,
+                            status: 'present'
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(attendanceData => {
+                        // Show success message
+                        resultContent.innerHTML = `
+                            <div class="result-success">
+                                <i class="fas fa-check-circle"></i>
+                                <div class="result-message">
+                                    <h4>Student Identified!</h4>
+                                    <p>Student ID: ${data.student_id}</p>
+                                    <p>Confidence: ${data.confidence}</p>
+                                    <p class="success-message">Attendance recorded successfully!</p>
+                                </div>
+                            </div>
+                        `;
+                        singleStatus.textContent = 'Attendance recorded successfully!';
+                    })
+                    .catch(error => {
+                        console.error('Error recording attendance:', error);
+                        resultContent.innerHTML = `
+                            <div class="result-error">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <div class="result-message">
+                                    <h4>Student Identified!</h4>
+                                    <p>Student ID: ${data.student_id}</p>
+                                    <p>Confidence: ${data.confidence}</p>
+                                    <p class="error-message">Error recording attendance.</p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    // Not identified
+                    resultContent.innerHTML = `
+                        <div class="result-warning">
+                            <i class="fas fa-question-circle"></i>
+                            <div class="result-message">
+                                <h4>Not Recognized</h4>
+                                <p>${data.message}</p>
+                            </div>
+                        </div>
+                    `;
+                    singleStatus.textContent = 'Face not recognized. Please try again or use manual entry.';
+                }
+            } else {
+                // Error
+                resultContent.innerHTML = `
+                    <div class="result-error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <div class="result-message">
+                            <h4>Error</h4>
+                            <p>${data.message}</p>
+                        </div>
+                    </div>
+                `;
+                singleStatus.textContent = 'Error identifying face. Please try again.';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            resultContent.innerHTML = `
+                <div class="result-error">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <div class="result-message">
+                        <h4>Network Error</h4>
+                        <p>Could not connect to the server. Please try again.</p>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    // Retake photo
+    retakeBtn.addEventListener('click', function() {
+        capturedImage.style.display = 'none';
+        video.style.display = 'block';
+        
+        captureBtn.style.display = 'inline-block';
+        retakeBtn.style.display = 'none';
+        
+        identificationResult.style.display = 'none';
+        singleStatus.textContent = 'Camera active. Position the face in the center.';
+    });
+    
+    // Group Mode Camera Setup
+    const groupVideo = document.getElementById('groupWebcam');
+    const groupCanvas = document.getElementById('groupCanvas');
+    const startGroupCameraBtn = document.getElementById('startGroupCameraBtn');
+    const captureGroupBtn = document.getElementById('captureGroupBtn');
+    const retakeGroupBtn = document.getElementById('retakeGroupBtn');
+    const groupCapturedImage = document.getElementById('groupCapturedImage');
+    const groupPreviewImage = document.getElementById('groupPreviewImage');
+    const groupStatus = document.getElementById('groupStatus');
+    const groupImageData = document.getElementById('groupImageData');
+    const submitGroupBtn = document.getElementById('submitGroupBtn');
+    
+    let groupStream = null;
+    
+    // Start group camera
+    startGroupCameraBtn.addEventListener('click', async function() {
+        try {
+            groupStatus.textContent = 'Accessing camera...';
+            groupStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    facingMode: 'user'
+                } 
+            });
             
-            // Reset buttons
-            captureBtn.disabled = true;
-            stopCameraBtn.disabled = true;
-            startCameraBtn.disabled = false;
-            classSelect.disabled = false;
-            
-            results.innerHTML += '<p class="status-message">Camera stopped.</p>';
+            groupVideo.srcObject = groupStream;
+            startGroupCameraBtn.disabled = true;
+            captureGroupBtn.disabled = false;
+            groupStatus.textContent = 'Camera active. Position all students in the frame.';
+        } catch (err) {
+            groupStatus.textContent = 'Error accessing camera: ' + err.message;
+            console.error('Error accessing camera:', err);
         }
     });
     
-    // Simulate face identification (in real app, this would call your API)
-    function identifyFace(imageData) {
-        // Simulate API response (random result for demo)
-        const isIdentified = Math.random() > 0.3;
-        const classId = classSelect.value;
+    // Capture group image
+    captureGroupBtn.addEventListener('click', function() {
+        if (!groupStream) return;
         
-        if (isIdentified) {
-            // Generate fake student data
-            const studentId = 'S' + Math.floor(Math.random() * 1000);
-            const firstName = ['John', 'Jane', 'Alex', 'Maria', 'Sam'][Math.floor(Math.random() * 5)];
-            const lastName = ['Smith', 'Doe', 'Johnson', 'Brown', 'Davis'][Math.floor(Math.random() * 5)];
-            
-            // Check if student already recorded
-            if (!recordedStudents.has(studentId)) {
-                recordedStudents.add(studentId);
-                identified++;
-                identifiedCount.textContent = identified;
-                
-                // Log attendance (in real app, call API)
-                const timestamp = new Date().toLocaleTimeString();
-                
-                results.innerHTML = `
-                    <div class="result-card identified">
-                        <h4>Student Identified</h4>
-                        <p><strong>Name:</strong> ${firstName} ${lastName}</p>
-                        <p><strong>ID:</strong> ${studentId}</p>
-                        <p><strong>Time:</strong> ${timestamp}</p>
-                        <div class="success-message">✓ Attendance recorded</div>
-                    </div>
-                ` + results.innerHTML;
-                
-                // Simulate API call for recording attendance
-                console.log(`Recording attendance for student ${studentId} in class ${classId}`);
-            } else {
-                results.innerHTML = `
-                    <div class="result-card duplicate">
-                        <h4>Already Recorded</h4>
-                        <p><strong>Name:</strong> ${firstName} ${lastName}</p>
-                        <p><strong>ID:</strong> ${studentId}</p>
-                        <p>This student has already been recorded.</p>
-                    </div>
-                ` + results.innerHTML;
-            }
+        const ctx = groupCanvas.getContext('2d');
+        groupCanvas.width = groupVideo.videoWidth;
+        groupCanvas.height = groupVideo.videoHeight;
+        
+        // Draw video frame to canvas
+        ctx.drawImage(groupVideo, 0, 0, groupCanvas.width, groupCanvas.height);
+        
+        // Convert to base64 image
+        const imageData = groupCanvas.toDataURL('image/jpeg', 0.9);
+        groupImageData.value = imageData;
+        
+        // Display the captured image
+        groupPreviewImage.src = imageData;
+        groupCapturedImage.style.display = 'block';
+        groupVideo.style.display = 'none';
+        
+        // Show retake button and submit button
+        captureGroupBtn.style.display = 'none';
+        retakeGroupBtn.style.display = 'inline-block';
+        submitGroupBtn.disabled = false;
+        
+        groupStatus.textContent = 'Group photo captured! You can now record attendance.';
+    });
+    
+    // Retake group photo
+    retakeGroupBtn.addEventListener('click', function() {
+        groupCapturedImage.style.display = 'none';
+        groupVideo.style.display = 'block';
+        
+        captureGroupBtn.style.display = 'inline-block';
+        retakeGroupBtn.style.display = 'none';
+        submitGroupBtn.disabled = true;
+        
+        groupImageData.value = '';
+        groupStatus.textContent = 'Camera active. Position all students in the frame.';
+    });
+    
+    // Register Face Mode Setup
+    const registerVideo = document.getElementById('registerWebcam');
+    const registerCanvas = document.getElementById('registerCanvas');
+    const startRegisterCameraBtn = document.getElementById('startRegisterCameraBtn');
+    const captureRegisterBtn = document.getElementById('captureRegisterBtn');
+    const retakeRegisterBtn = document.getElementById('retakeRegisterBtn');
+    const registerCapturedImage = document.getElementById('registerCapturedImage');
+    const registerPreviewImage = document.getElementById('registerPreviewImage');
+    const registerStatus = document.getElementById('registerStatus');
+    const registerImageData = document.getElementById('registerImageData');
+    const registerFaceBtn = document.getElementById('registerFaceBtn');
+    const registrationResult = document.getElementById('registrationResult');
+    const registrationResultContent = document.getElementById('registrationResultContent');
+    const registerSelect = document.getElementById('registerSelect');
+    const existingStudentForm = document.getElementById('existingStudentForm');
+    const newStudentForm = document.getElementById('newStudentForm');
+    
+    let registerStream = null;
+    
+    // Toggle between new and existing student forms
+    registerSelect.addEventListener('change', function() {
+        if (this.value === 'new') {
+            existingStudentForm.style.display = 'none';
+            newStudentForm.style.display = 'block';
         } else {
-            // Unknown face
-            unknown++;
-            unknownCount.textContent = unknown;
+            existingStudentForm.style.display = 'block';
+            newStudentForm.style.display = 'none';
+        }
+    });
+    
+    // Start register camera
+    startRegisterCameraBtn.addEventListener('click', async function() {
+        try {
+            registerStatus.textContent = 'Accessing camera...';
+            registerStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: 'user'
+                } 
+            });
             
-            results.innerHTML = `
-                <div class="result-card unknown">
-                    <h4>Unknown Person</h4>
-                    <p>This person could not be identified as a registered student.</p>
-                    <p>Please ensure the face is clearly visible and properly lit.</p>
+            registerVideo.srcObject = registerStream;
+            startRegisterCameraBtn.disabled = true;
+            captureRegisterBtn.disabled = false;
+            registerStatus.textContent = 'Camera active. Position the face in the center.';
+        } catch (err) {
+            registerStatus.textContent = 'Error accessing camera: ' + err.message;
+            console.error('Error accessing camera:', err);
+        }
+    });
+    
+    // Capture register image
+    captureRegisterBtn.addEventListener('click', function() {
+        if (!registerStream) return;
+        
+        const ctx = registerCanvas.getContext('2d');
+        registerCanvas.width = registerVideo.videoWidth;
+        registerCanvas.height = registerVideo.videoHeight;
+        
+        // Draw video frame to canvas
+        ctx.drawImage(registerVideo, 0, 0, registerCanvas.width, registerCanvas.height);
+        
+        // Convert to base64 image
+        const imageData = registerCanvas.toDataURL('image/jpeg', 0.9);
+        registerImageData.value = imageData;
+        
+        // Display the captured image
+        registerPreviewImage.src = imageData;
+        registerCapturedImage.style.display = 'block';
+        registerVideo.style.display = 'none';
+        
+        // Show retake button and enable register button
+        captureRegisterBtn.style.display = 'none';
+        retakeRegisterBtn.style.display = 'inline-block';
+        registerFaceBtn.disabled = false;
+        
+        registerStatus.textContent = 'Face captured! You can now register the face.';
+    });
+    
+    // Retake register photo
+    retakeRegisterBtn.addEventListener('click', function() {
+        registerCapturedImage.style.display = 'none';
+        registerVideo.style.display = 'block';
+        
+        captureRegisterBtn.style.display = 'inline-block';
+        retakeRegisterBtn.style.display = 'none';
+        registerFaceBtn.disabled = true;
+        
+        registerImageData.value = '';
+        registerStatus.textContent = 'Camera active. Position the face in the center.';
+    });
+    
+    // Register face button action
+    registerFaceBtn.addEventListener('click', function() {
+        if (!registerImageData.value) {
+            registerStatus.textContent = 'Please capture a face image first.';
+            return;
+        }
+        
+        const isExistingStudent = registerSelect.value === 'existing';
+        let studentId, requestBody, apiEndpoint;
+        
+        if (isExistingStudent) {
+            // Register face for existing student
+            studentId = document.getElementById('existingStudentSelect').value;
+            if (!studentId) {
+                registerStatus.textContent = 'Please select a student.';
+                return;
+            }
+            
+            apiEndpoint = '/api/register-face';
+            requestBody = {
+                student_id: studentId,
+                image_data: registerImageData.value
+            };
+        } else {
+            // Create new student with face
+            const firstName = document.getElementById('registerFirstName').value;
+            const lastName = document.getElementById('registerLastName').value;
+            const email = document.getElementById('registerEmail').value;
+            const gender = document.getElementById('registerGender').value;
+            const dateOfBirth = document.getElementById('registerDateOfBirth').value;
+            
+            if (!firstName || !lastName || !email) {
+                registerStatus.textContent = 'Please fill in all required fields.';
+                return;
+            }
+            
+            // First create the student
+            apiEndpoint = '/api/students';
+            requestBody = {
+                first_name: firstName,
+                last_name: lastName,
+                email: email,
+                gender: gender,
+                date_of_birth: dateOfBirth
+            };
+        }
+        
+        // Show loading state
+        registrationResultContent.innerHTML = '<div class="loading">Processing registration...</div>';
+        registrationResult.style.display = 'block';
+        
+        // Send the API request
+        fetch(apiEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (isExistingStudent) {
+                // Face registration complete
+                displayRegistrationResult(data);
+            } else {
+                // New student created, now register face
+                if (data.success || data.id) {
+                    const newStudentId = data.id || data.student.id;
+                    
+                    // Now register the face for the new student
+                    fetch('/api/register-face', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            student_id: newStudentId,
+                            image_data: registerImageData.value
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(faceData => {
+                        // Registration complete
+                        displayRegistrationResult(faceData, newStudentId);
+                    })
+                    .catch(error => {
+                        console.error('Error registering face:', error);
+                        displayRegistrationError('Error registering face. Please try again.');
+                    });
+                } else {
+                    // Error creating student
+                    displayRegistrationError(data.message || 'Error creating student.');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            displayRegistrationError('Network error. Please try again.');
+        });
+    });
+    
+    function displayRegistrationResult(data, studentId) {
+        if (data.success) {
+            registrationResultContent.innerHTML = `
+                <div class="result-success">
+                    <i class="fas fa-check-circle"></i>
+                    <div class="result-message">
+                        <h4>Registration Successful!</h4>
+                        <p>${data.message}</p>
+                        ${studentId ? `<p>Student ID: ${studentId}</p>` : ''}
+                    </div>
                 </div>
-            ` + results.innerHTML;
+            `;
+            registerStatus.textContent = 'Face registered successfully!';
+            
+            // Reset the form
+            setTimeout(() => {
+                if (registerSelect.value === 'new') {
+                    document.getElementById('registerFirstName').value = '';
+                    document.getElementById('registerLastName').value = '';
+                    document.getElementById('registerEmail').value = '';
+                }
+            }, 2000);
+        } else {
+            displayRegistrationError(data.message);
         }
     }
+    
+    function displayRegistrationError(message) {
+        registrationResultContent.innerHTML = `
+            <div class="result-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <div class="result-message">
+                    <h4>Registration Failed</h4>
+                    <p>${message}</p>
+                </div>
+            </div>
+        `;
+        registerStatus.textContent = 'Registration failed. Please try again.';
+    }
+    
+    // Clean up cameras when leaving page
+    window.addEventListener('beforeunload', function() {
+        if (singleStream) {
+            singleStream.getTracks().forEach(track => track.stop());
+        }
+        if (groupStream) {
+            groupStream.getTracks().forEach(track => track.stop());
+        }
+        if (registerStream) {
+            registerStream.getTracks().forEach(track => track.stop());
+        }
+    });
+});
 </script>
+
+<style>
+.attendance-tabs {
+    margin-top: 20px;
+}
+
+.tab-header {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-right: 10px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-medium);
+    transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+    color: var(--primary-color);
+}
+
+.tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+.mode-buttons {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 20px;
+}
+
+.mode-btn {
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-right: 10px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-medium);
+    transition: all 0.2s ease;
+}
+
+.mode-btn:hover {
+    color: var(--primary-color);
+}
+
+.mode-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.mode-pane {
+    display: none;
+}
+
+.mode-pane.active {
+    display: block;
+}
+
+.camera-container {
+    width: 100%;
+    margin-bottom: 20px;
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #f0f0f0;
+    aspect-ratio: 4/3;
+}
+
+.live-camera {
+    aspect-ratio: 16/9;
+}
+
+#webcam, #groupWebcam, #liveWebcam {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.camera-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.face-guide {
+    width: 200px;
+    height: 200px;
+    border: 2px dashed rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.2);
+}
+
+.camera-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.status-message {
+    color: var(--text-medium);
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.captured-image-container {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.captured-image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.identification-result {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 8px;
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+.result-success, .result-warning, .result-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+}
+
+.result-success i {
+    color: #27ae60;
+    font-size: 24px;
+}
+
+.result-warning i {
+    color: #f39c12;
+    font-size: 24px;
+}
+
+.result-error i {
+    color: #e74c3c;
+    font-size: 24px;
+}
+
+.success-message {
+    color: #27ae60;
+    font-weight: 500;
+}
+
+.error-message {
+    color: #e74c3c;
+    font-weight: 500;
+}
+
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    color: var(--text-medium);
+}
+
+.loading:after {
+    content: "⟳";
+    font-size: 20px;
+    margin-left: 10px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.class-list {
+    margin-top: 20px;
+}
+
+.class-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    text-decoration: none;
+    color: var(--text-dark);
+    transition: all 0.2s ease;
+}
+
+.class-item:hover {
+    background-color: rgba(66, 133, 244, 0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.class-item-details h4 {
+    margin: 0 0 5px 0;
+    color: var(--text-dark);
+}
+
+.class-item i {
+    color: var(--text-light);
+}
+
+.live-results {
+    margin-top: 20px;
+}
+
+.live-results-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.register-form {
+    margin-top: 20px;
+    max-width: 600px;
+}
+
+.register-form .form-group {
+    margin-bottom: 15px;
+}
+
+.register-form label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.register-form input,
+.register-form select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.form-actions {
+    margin-top: 20px;
+}
+
+.result-success, .result-warning, .result-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+.result-success {
+    background-color: rgba(39, 174, 96, 0.1);
+}
+
+.result-error {
+    background-color: rgba(231, 76, 60, 0.1);
+}
+
+@media (max-width: 768px) {
+    .tab-header, .mode-buttons {
+        flex-wrap: wrap;
+    }
+    
+    .tab-btn, .mode-btn {
+        flex: 1;
+        text-align: center;
+        padding: 8px;
+        margin-right: 5px;
+        font-size: 14px;
+    }
+    
+    .camera-controls {
+        flex-wrap: wrap;
+    }
+    
+    .camera-controls button {
+        flex: 1;
+    }
+    
+    .register-form {
+        max-width: 100%;
+    }
+}
+</style>
+{% endif %}
 {% endblock %} 

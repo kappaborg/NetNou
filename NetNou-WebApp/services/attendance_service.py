@@ -1,5 +1,5 @@
 """Attendance service for the application."""
-
+from ..database.class_model import get_class_attendance
 from ..database.class_model import record_attendance as db_record_attendance
 from ..database.student_model import get_student
 
