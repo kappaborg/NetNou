@@ -89,8 +89,14 @@ def decode_image(base64_image):
     """
     try:
         # Handle data URL format (e.g. "data:image/jpeg;base64,...")
-        if 'base64,' in base64_image:
+        if isinstance(base64_image, str) and 'base64,' in base64_image:
+            # Extract only the base64 part
             base64_image = base64_image.split('base64,')[1]
+        
+        # Handle potential padding issues
+        padding = 4 - (len(base64_image) % 4) if len(base64_image) % 4 != 0 else 0
+        if padding:
+            base64_image += '=' * padding
             
         # Decode base64 to image
         image_bytes = base64.b64decode(base64_image)
@@ -151,23 +157,42 @@ def register_face(student_id, image_data):
     Returns:
         dict: Result of registration with success status and message
     """
+    if not student_id:
+        return {'success': False, 'message': 'Missing student ID'}
+        
+    if not image_data:
+        return {'success': False, 'message': 'Missing image data'}
+    
+    if not isinstance(image_data, str):
+        return {'success': False, 'message': 'Invalid image data format'}
+        
+    print(f"Processing face registration for student ID: {student_id}")
+    print(f"Image data length: {len(image_data) if image_data else 0}")
+    
     # Check if student already has a face registered
     for embedding in FACE_EMBEDDINGS:
         if embedding['student_id'] == student_id:
             # Update the existing face embedding instead of returning an error
+            print(f"Updating existing face for student {student_id}")
             result = analyze_face(image_data)
             if not result['success']:
+                print(f"Face analysis failed: {result.get('message', 'Unknown error')}")
                 return result
                 
             embedding['face_encoding'] = result['face_encoding']
             embedding['updated_at'] = datetime.now().isoformat()
             save_face_data()
+            
+            # Update student's face registration status in database
+            update_student_face(student_id, True)
             return {'success': True, 'message': 'Face updated successfully'}
     
     try:
         # Analyze face and get encoding
+        print(f"Analyzing face for new registration")
         result = analyze_face(image_data)
         if not result['success']:
+            print(f"Face analysis failed: {result.get('message', 'Unknown error')}")
             return result
         
         # Create a new face embedding record
@@ -183,13 +208,27 @@ def register_face(student_id, image_data):
         FACE_EMBEDDINGS.append(embedding_record)
         
         # Save to persistent storage
-        save_face_data()
+        save_success = save_face_data()
+        if not save_success:
+            print("Warning: Face data saved to memory but failed to persist to storage")
         
+        # Update student's face registration status in database
+        update_student_face(student_id, True)
+        
+        print(f"Face registered successfully for student {student_id}")
         return {'success': True, 'message': 'Face registered successfully'}
     
     except Exception as e:
-        print(f"Error registering face: {str(e)}")
-        return {'success': False, 'message': f'Error registering face: {str(e)}'}
+        error_message = str(e)
+        print(f"Error registering face: {error_message}")
+        
+        # Provide more user-friendly error messages for common issues
+        if "base64" in error_message.lower():
+            return {'success': False, 'message': 'Invalid image format. Please ensure the image is properly encoded.'}
+        elif "io" in error_message.lower() or "bytes" in error_message.lower():
+            return {'success': False, 'message': 'Invalid image data. Please capture a new image.'}
+        else:
+            return {'success': False, 'message': f'Error registering face: {error_message}'}
 
 def identify_face(image_data, tolerance=0.6):
     """Identify a face from an image.
@@ -390,6 +429,9 @@ def delete_face_registration(student_id):
             
             # Save changes to persistent storage
             save_face_data()
+            
+            # Update student's face registration status in database
+            update_student_face(student_id, False)
             
             return {'success': True, 'message': 'Face registration deleted successfully'}
     

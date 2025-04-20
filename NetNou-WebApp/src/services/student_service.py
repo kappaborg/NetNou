@@ -4,9 +4,11 @@ from ..database.student_model import (
     get_student as db_get_student,
     get_students as db_get_students,
     create_student as db_create_student,
-    update_student as db_update_student
+    update_student as db_update_student,
+    delete_student as db_delete_student
 )
 from ..database.class_model import get_student_attendance
+from ..services.face_service import delete_face_registration
 
 def get_students():
     """Get all students.
@@ -163,4 +165,39 @@ def sanitize_students(students):
     Returns:
         list: List of sanitized student objects
     """
-    return [sanitize_student(student) for student in students] 
+    return [sanitize_student(student) for student in students]
+
+def delete_student(student_id):
+    """Delete a student and their face registration (if any).
+    
+    Args:
+        student_id (str): The student ID to delete
+        
+    Returns:
+        dict: Result of the operation with success status and message
+    """
+    # Validate student exists
+    student = db_get_student(student_id)
+    if not student:
+        return {
+            'success': False,
+            'message': f'Student with ID {student_id} not found'
+        }
+    
+    # Delete face registration if exists
+    if student.get('has_face_registered', False):
+        delete_face_registration(student_id)
+    
+    # Delete student
+    deleted = db_delete_student(student_id)
+    
+    if not deleted:
+        return {
+            'success': False,
+            'message': 'Failed to delete student'
+        }
+    
+    return {
+        'success': True,
+        'message': 'Student deleted successfully'
+    } 

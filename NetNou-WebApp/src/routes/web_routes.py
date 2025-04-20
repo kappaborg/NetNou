@@ -4,7 +4,7 @@ from flask import Blueprint, render_template, redirect, url_for, session, reques
 from datetime import datetime
 from ..services.auth_service import authenticate_user, is_authenticated
 from ..services.class_service import get_classes, get_class_attendance, create_class
-from ..services.student_service import get_students, get_student_details, create_student
+from ..services.student_service import get_students, get_student_details, create_student, update_student
 from ..services.attendance_service import get_recent_attendance, get_attendance_stats, record_attendance
 from ..services.face_service import register_face
 
@@ -181,6 +181,33 @@ def register_student():
             flash(result['message'], 'error')
     
     return render_template('register_student.html', now=datetime.now())
+
+@web.route('/students/<student_id>/update', methods=['POST'])
+def update_student(student_id):
+    """Update student information."""
+    if not is_authenticated():
+        return redirect(url_for('web.login'))
+    
+    if request.method == 'POST':
+        updates = {
+            'name': request.form.get('name'),
+            'email': request.form.get('email'),
+            'department': request.form.get('department'),
+            'year': request.form.get('year'),
+            'semester': request.form.get('semester')
+        }
+        
+        # Filter out None values
+        updates = {k: v for k, v in updates.items() if v is not None}
+        
+        result = update_student(student_id, updates)
+        
+        if result['success']:
+            flash('Student information updated successfully!', 'success')
+        else:
+            flash(result['message'], 'error')
+            
+    return redirect(url_for('web.student_detail', student_id=student_id))
 
 # Attendance routes
 @web.route('/attendance')

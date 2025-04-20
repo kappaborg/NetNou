@@ -10,31 +10,43 @@
 <section class="students-section">
     <div class="section-header">
         <h2>Students</h2>
-        <div class="search-filter">
-            <input type="text" id="studentSearch" placeholder="Search students..." class="search-input">
+        <div class="actions-container">
+            <div class="search-filter">
+                <input type="text" id="studentSearch" placeholder="Search students..." class="search-input">
+                <div class="filter-group">
+                    <select id="filterRegistered" class="form-select">
+                        <option value="all">All Students</option>
+                        <option value="yes">Face Registered</option>
+                        <option value="no">Face Not Registered</option>
+                    </select>
+                </div>
+            </div>
+            <a href="{{ url_for('web.register_student') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add Student
+            </a>
         </div>
     </div>
     
     {% if students %}
         <div class="students-list">
-            <table class="data-table">
+            <table class="data-table sortable">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Face Registered</th>
+                        <th class="sortable" data-sort="id">ID <i class="fas fa-sort"></i></th>
+                        <th class="sortable" data-sort="name">Name <i class="fas fa-sort"></i></th>
+                        <th class="sortable" data-sort="email">Email <i class="fas fa-sort"></i></th>
+                        <th class="sortable" data-sort="face_registered">Face Registered <i class="fas fa-sort"></i></th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for student in students %}
-                        <tr>
+                        <tr data-face-registered="{{ 'yes' if student.has_face_registered else 'no' }}">
                             <td>{{ student.id }}</td>
                             <td>{{ student.first_name }} {{ student.last_name }}</td>
                             <td>{{ student.email }}</td>
                             <td>
-                                {% if student.face_registered %}
+                                {% if student.has_face_registered %}
                                     <span class="status-tag status-success">Yes</span>
                                 {% else %}
                                     <span class="status-tag status-error">No</span>
@@ -42,10 +54,21 @@
                             </td>
                             <td>
                                 <div class="action-buttons">
-                                    <button class="action-btn view-btn" onclick="viewStudent('{{ student.id }}')">View</button>
-                                    {% if not student.face_registered %}
-                                        <button class="action-btn register-btn" onclick="registerFace('{{ student.id }}')">Register Face</button>
+                                    <a href="{{ url_for('web.student_detail', student_id=student.id) }}" class="action-btn view-btn">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                    {% if student.has_face_registered %}
+                                        <button class="action-btn delete-face-btn" data-student-id="{{ student.id }}">
+                                            <i class="fas fa-trash-alt"></i> Delete Face
+                                        </button>
+                                    {% else %}
+                                        <button class="action-btn register-btn" data-student-id="{{ student.id }}" data-student-name="{{ student.first_name }} {{ student.last_name }}">
+                                            <i class="fas fa-camera"></i> Register Face
+                                        </button>
                                     {% endif %}
+                                    <button class="action-btn delete-btn" data-student-id="{{ student.id }}" data-student-name="{{ student.first_name }} {{ student.last_name }}">
+                                        <i class="fas fa-trash-alt"></i> Delete
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -56,34 +79,797 @@
     {% else %}
         <div class="no-data">
             <p>No students found. Add students to get started.</p>
+            <a href="{{ url_for('web.register_student') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add Student
+            </a>
         </div>
     {% endif %}
 </section>
+
+<!-- Face Registration Modal -->
+<div id="faceRegistrationModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Register Face for <span id="studentNameInModal"></span></h3>
+            <button class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="camera-container">
+                <video id="webcam" autoplay playsinline></video>
+                <div class="camera-overlay">
+                    <div class="face-guide"></div>
+                </div>
+                <canvas id="canvas" style="display: none;"></canvas>
+                <div id="capturedImage" class="captured-image-container" style="display: none;">
+                    <img id="previewImage" src="" alt="Captured face">
+                </div>
+            </div>
+            
+            <div class="camera-controls">
+                <button id="startCameraBtn" type="button" class="btn btn-outline">
+                    <i class="fas fa-video"></i> Start Camera
+                </button>
+                <button id="captureBtn" type="button" class="btn btn-primary" disabled>
+                    <i class="fas fa-camera"></i> Capture
+                </button>
+                <button id="retakeBtn" type="button" class="btn btn-outline" style="display: none;">
+                    <i class="fas fa-redo"></i> Retake
+                </button>
+            </div>
+            
+            <div id="registrationStatus" class="status-message"></div>
+            
+            <input type="hidden" id="studentId">
+            <input type="hidden" id="faceImage">
+            
+            <div class="form-actions">
+                <button type="button" class="btn btn-outline close-btn">Cancel</button>
+                <button type="button" id="registerFaceBtn" class="btn btn-primary" disabled>
+                    Register Face
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteConfirmationModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Confirm Deletion</h3>
+            <button class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete <span id="deleteStudentName"></span>?</p>
+            <p class="warning-text">This action cannot be undone.</p>
+            <input type="hidden" id="deleteStudentId">
+            
+            <div class="form-actions">
+                <button type="button" class="btn btn-outline close-btn">Cancel</button>
+                <button type="button" id="confirmDeleteBtn" class="btn btn-danger">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Face Confirmation Modal -->
+<div id="deleteFaceConfirmationModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Confirm Face Deletion</h3>
+            <button class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete the face registration for this student?</p>
+            <p class="warning-text">The student record will remain, but the face data will be removed.</p>
+            <input type="hidden" id="deleteFaceStudentId">
+            
+            <div class="form-actions">
+                <button type="button" class="btn btn-outline close-btn">Cancel</button>
+                <button type="button" id="confirmDeleteFaceBtn" class="btn btn-danger">
+                    Delete Face
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Simple search functionality
-    document.getElementById('studentSearch').addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
-        const rows = document.querySelectorAll('.students-list tbody tr');
+    document.addEventListener('DOMContentLoaded', function() {
+        // Search functionality
+        document.getElementById('studentSearch').addEventListener('input', filterStudents);
+        document.getElementById('filterRegistered').addEventListener('change', filterStudents);
         
-        rows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        // Setup sorting
+        setupSorting();
+        
+        // Register face buttons
+        document.querySelectorAll('.register-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const studentId = this.getAttribute('data-student-id');
+                const studentName = this.getAttribute('data-student-name');
+                openFaceRegistrationModal(studentId, studentName);
+            });
+        });
+        
+        // Delete student buttons
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const studentId = this.getAttribute('data-student-id');
+                const studentName = this.getAttribute('data-student-name');
+                openDeleteConfirmationModal(studentId, studentName);
+            });
+        });
+        
+        // Delete face buttons
+        document.querySelectorAll('.delete-face-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const studentId = this.getAttribute('data-student-id');
+                openDeleteFaceConfirmationModal(studentId);
+            });
+        });
+        
+        // Close modals
+        document.querySelectorAll('.close-modal, .close-btn').forEach(btn => {
+            btn.addEventListener('click', closeAllModals);
+        });
+        
+        // Filter students function
+        function filterStudents() {
+            const searchTerm = document.getElementById('studentSearch').value.toLowerCase();
+            const filterValue = document.getElementById('filterRegistered').value;
+            
+            const rows = document.querySelectorAll('.students-list tbody tr');
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+                const id = row.cells[0].textContent.toLowerCase();
+                const name = row.cells[1].textContent.toLowerCase();
+                const email = row.cells[2].textContent.toLowerCase();
+                const faceRegistered = row.getAttribute('data-face-registered');
+                
+                // Check if meets search criteria
+                const matchesSearch = id.includes(searchTerm) || 
+                                     name.includes(searchTerm) || 
+                                     email.includes(searchTerm);
+                
+                // Check if meets filter criteria
+                const matchesFilter = filterValue === 'all' || 
+                                     (filterValue === 'yes' && faceRegistered === 'yes') || 
+                                     (filterValue === 'no' && faceRegistered === 'no');
+                
+                // Show/hide based on both criteria
+                if (matchesSearch && matchesFilter) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Show "no results" message if needed
+            const tableBody = document.querySelector('.students-list tbody');
+            let noResultsRow = document.getElementById('noResultsRow');
+            
+            if (visibleCount === 0 && tableBody) {
+                if (!noResultsRow) {
+                    noResultsRow = document.createElement('tr');
+                    noResultsRow.id = 'noResultsRow';
+                    const cell = document.createElement('td');
+                    cell.colSpan = 5;
+                    cell.textContent = 'No students found matching your criteria.';
+                    cell.style.textAlign = 'center';
+                    cell.style.padding = '20px';
+                    noResultsRow.appendChild(cell);
+                    tableBody.appendChild(noResultsRow);
+                }
+            } else if (noResultsRow) {
+                noResultsRow.remove();
+            }
+        }
+        
+        // Sorting functionality
+        function setupSorting() {
+            const headers = document.querySelectorAll('.sortable');
+            let currentSortColumn = null;
+            let currentSortDirection = 'asc';
+            
+            headers.forEach(header => {
+                header.addEventListener('click', function() {
+                    const column = this.getAttribute('data-sort');
+                    
+                    // Update direction if clicking the same column
+                    if (currentSortColumn === column) {
+                        currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        currentSortColumn = column;
+                        currentSortDirection = 'asc';
+                    }
+                    
+                    // Update icons on all headers
+                    headers.forEach(h => {
+                        const icon = h.querySelector('i');
+                        if (h.getAttribute('data-sort') === column) {
+                            icon.className = currentSortDirection === 'asc' ? 
+                                'fas fa-sort-up' : 'fas fa-sort-down';
+                        } else {
+                            icon.className = 'fas fa-sort';
+                        }
+                    });
+                    
+                    // Sort the table
+                    sortTable(column, currentSortDirection);
+                });
+            });
+        }
+        
+        // Function to sort the table
+        function sortTable(column, direction) {
+            const tbody = document.querySelector('.students-list tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr:not(#noResultsRow)'));
+            
+            // Sort the array of rows
+            rows.sort((a, b) => {
+                let aValue, bValue;
+                
+                if (column === 'id') {
+                    // Sort by ID (numeric)
+                    aValue = parseInt(a.cells[0].textContent.trim());
+                    bValue = parseInt(b.cells[0].textContent.trim());
+                } else if (column === 'name') {
+                    // Sort by name (alphabetic)
+                    aValue = a.cells[1].textContent.trim().toLowerCase();
+                    bValue = b.cells[1].textContent.trim().toLowerCase();
+                } else if (column === 'email') {
+                    // Sort by email (alphabetic)
+                    aValue = a.cells[2].textContent.trim().toLowerCase();
+                    bValue = b.cells[2].textContent.trim().toLowerCase();
+                } else if (column === 'face_registered') {
+                    // Sort by face registration status (yes/no)
+                    aValue = a.getAttribute('data-face-registered') === 'yes' ? 1 : 0;
+                    bValue = b.getAttribute('data-face-registered') === 'yes' ? 1 : 0;
+                }
+                
+                // Apply sort direction
+                if (direction === 'asc') {
+                    return aValue > bValue ? 1 : -1;
+                } else {
+                    return aValue < bValue ? 1 : -1;
+                }
+            });
+            
+            // Re-append rows in the new order
+            rows.forEach(row => {
+                tbody.appendChild(row);
+            });
+            
+            // Re-append the "no results" row if it exists
+            const noResultsRow = document.getElementById('noResultsRow');
+            if (noResultsRow) {
+                tbody.appendChild(noResultsRow);
+            }
+        }
+        
+        // Function to open face registration modal
+        function openFaceRegistrationModal(studentId, studentName) {
+            document.getElementById('studentId').value = studentId;
+            document.getElementById('studentNameInModal').textContent = studentName;
+            document.getElementById('faceRegistrationModal').style.display = 'block';
+            
+            // Reset form state
+            document.getElementById('startCameraBtn').disabled = false;
+            document.getElementById('captureBtn').disabled = true;
+            document.getElementById('registerFaceBtn').disabled = true;
+            document.getElementById('registrationStatus').textContent = 'Click "Start Camera" to begin.';
+            
+            document.getElementById('webcam').style.display = 'block';
+            document.getElementById('capturedImage').style.display = 'none';
+            document.getElementById('captureBtn').style.display = 'inline-block';
+            document.getElementById('retakeBtn').style.display = 'none';
+            document.getElementById('faceImage').value = '';
+            
+            // Stop any existing stream
+            if (window.stream) {
+                window.stream.getTracks().forEach(track => track.stop());
+                window.stream = null;
+            }
+        }
+        
+        // Function to open delete confirmation modal
+        function openDeleteConfirmationModal(studentId, studentName) {
+            document.getElementById('deleteStudentId').value = studentId;
+            document.getElementById('deleteStudentName').textContent = studentName;
+            document.getElementById('deleteConfirmationModal').style.display = 'block';
+        }
+        
+        // Function to open delete face confirmation modal
+        function openDeleteFaceConfirmationModal(studentId) {
+            document.getElementById('deleteFaceStudentId').value = studentId;
+            document.getElementById('deleteFaceConfirmationModal').style.display = 'block';
+        }
+        
+        // Function to close all modals
+        function closeAllModals() {
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.style.display = 'none';
+            });
+            
+            // Stop camera stream if active
+            if (window.stream) {
+                window.stream.getTracks().forEach(track => track.stop());
+                window.stream = null;
+            }
+        }
+        
+        // Confirm delete button
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            const studentId = document.getElementById('deleteStudentId').value;
+            
+            // Call API to delete student
+            fetch(`/api/students/${studentId}`, {
+                method: 'DELETE',
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove student row from table
+                    const rows = document.querySelectorAll('.students-list tbody tr');
+                    rows.forEach(row => {
+                        const btns = row.querySelectorAll(`[data-student-id="${studentId}"]`);
+                        if (btns.length > 0) {
+                            row.remove();
+                        }
+                    });
+                    
+                    // Close modal
+                    closeAllModals();
+                    
+                    // Show success message
+                    alert('Student deleted successfully.');
+                    
+                    // If no students left, reload page to show "no students" message
+                    const remainingRows = document.querySelectorAll('.students-list tbody tr');
+                    if (remainingRows.length === 0) {
+                        location.reload();
+                    }
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while deleting the student.');
+            });
+        });
+        
+        // Confirm delete face button
+        document.getElementById('confirmDeleteFaceBtn').addEventListener('click', function() {
+            const studentId = document.getElementById('deleteFaceStudentId').value;
+            
+            // Call API to delete face registration
+            fetch(`/api/register-face/${studentId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the status in the table
+                    const rows = document.querySelectorAll('.students-list tbody tr');
+                    rows.forEach(row => {
+                        const btns = row.querySelectorAll(`[data-student-id="${studentId}"]`);
+                        if (btns.length > 0) {
+                            // Update face status
+                            const statusCell = row.cells[3];
+                            statusCell.innerHTML = '<span class="status-tag status-error">No</span>';
+                            
+                            // Update action buttons
+                            const actionsCell = row.cells[4];
+                            const registerBtn = document.createElement('button');
+                            registerBtn.className = 'action-btn register-btn';
+                            registerBtn.setAttribute('data-student-id', studentId);
+                            
+                            // Get student name from the row
+                            const studentName = row.cells[1].textContent.trim();
+                            registerBtn.setAttribute('data-student-name', studentName);
+                            
+                            registerBtn.innerHTML = '<i class="fas fa-camera"></i> Register Face';
+                            registerBtn.addEventListener('click', function() {
+                                openFaceRegistrationModal(studentId, studentName);
+                            });
+                            
+                            // Replace delete face button with register button
+                            const deleteFaceBtn = actionsCell.querySelector('.delete-face-btn');
+                            if (deleteFaceBtn) {
+                                deleteFaceBtn.replaceWith(registerBtn);
+                            }
+                            
+                            // Update row attribute
+                            row.setAttribute('data-face-registered', 'no');
+                        }
+                    });
+                    
+                    // Close modal
+                    closeAllModals();
+                    
+                    // Re-apply filters
+                    filterStudents();
+                    
+                    // Show success message
+                    alert('Face registration deleted successfully.');
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while deleting the face registration.');
+            });
+        });
+        
+        // Setup webcam for face registration
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const startCameraBtn = document.getElementById('startCameraBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const retakeBtn = document.getElementById('retakeBtn');
+        const capturedImage = document.getElementById('capturedImage');
+        const previewImage = document.getElementById('previewImage');
+        const faceImage = document.getElementById('faceImage');
+        const registerFaceBtn = document.getElementById('registerFaceBtn');
+        const registrationStatus = document.getElementById('registrationStatus');
+        
+        // Start camera
+        startCameraBtn.addEventListener('click', async function() {
+            try {
+                registrationStatus.textContent = 'Accessing camera...';
+                window.stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    } 
+                });
+                
+                video.srcObject = window.stream;
+                startCameraBtn.disabled = true;
+                captureBtn.disabled = false;
+                registrationStatus.textContent = 'Camera active. Position the face in the center.';
+            } catch (err) {
+                registrationStatus.textContent = 'Error accessing camera: ' + err.message;
+                console.error('Error accessing camera:', err);
+            }
+        });
+        
+        // Capture image
+        captureBtn.addEventListener('click', function() {
+            if (!window.stream) return;
+            
+            try {
+                const ctx = canvas.getContext('2d');
+                // Use the actual video dimensions
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                // Clear canvas before drawing
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw video frame to canvas
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Convert to base64 image (JPEG format with good quality)
+                const imageData = canvas.toDataURL('image/jpeg', 0.92);
+                faceImage.value = imageData;
+                
+                // Display the captured image
+                previewImage.src = imageData;
+                capturedImage.style.display = 'block';
+                video.style.display = 'none';
+                
+                // Show retake button
+                captureBtn.style.display = 'none';
+                retakeBtn.style.display = 'inline-block';
+                registerFaceBtn.disabled = false;
+                
+                registrationStatus.textContent = 'Face captured! Click "Register Face" to save.';
+            } catch (error) {
+                console.error('Error capturing image:', error);
+                registrationStatus.textContent = 'Error capturing image. Please try again.';
+            }
+        });
+        
+        // Retake photo
+        retakeBtn.addEventListener('click', function() {
+            capturedImage.style.display = 'none';
+            video.style.display = 'block';
+            
+            captureBtn.style.display = 'inline-block';
+            retakeBtn.style.display = 'none';
+            registerFaceBtn.disabled = true;
+            
+            faceImage.value = '';
+            registrationStatus.textContent = 'Camera active. Position the face in the center.';
+        });
+        
+        // Register face
+        registerFaceBtn.addEventListener('click', function() {
+            const studentId = document.getElementById('studentId').value;
+            const imageData = faceImage.value;
+            
+            if (!studentId || !imageData) {
+                registrationStatus.textContent = 'Missing student ID or face image.';
+                return;
+            }
+            
+            registrationStatus.textContent = 'Registering face...';
+            registerFaceBtn.disabled = true;
+            
+            // Validate base64 image format
+            if (!imageData.startsWith('data:image/')) {
+                registrationStatus.textContent = 'Invalid image format. Please capture the image again.';
+                registerFaceBtn.disabled = false;
+                return;
+            }
+            
+            // Call API to register face
+            fetch('/api/register-face', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    student_id: studentId,
+                    image_data: imageData
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server responded with status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    registrationStatus.textContent = 'Face registered successfully!';
+                    
+                    // Update the status in the table
+                    const rows = document.querySelectorAll('.students-list tbody tr');
+                    rows.forEach(row => {
+                        const btns = row.querySelectorAll(`[data-student-id="${studentId}"]`);
+                        if (btns.length > 0) {
+                            // Update face status
+                            const statusCell = row.cells[3];
+                            statusCell.innerHTML = '<span class="status-tag status-success">Yes</span>';
+                            
+                            // Update action buttons
+                            const actionsCell = row.cells[4];
+                            const deleteFaceBtn = document.createElement('button');
+                            deleteFaceBtn.className = 'action-btn delete-face-btn';
+                            deleteFaceBtn.setAttribute('data-student-id', studentId);
+                            deleteFaceBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Delete Face';
+                            deleteFaceBtn.addEventListener('click', function() {
+                                openDeleteFaceConfirmationModal(studentId);
+                            });
+                            
+                            // Replace register face button with delete face button
+                            const registerBtn = actionsCell.querySelector('.register-btn');
+                            if (registerBtn) {
+                                registerBtn.replaceWith(deleteFaceBtn);
+                            }
+                            
+                            // Update row attribute
+                            row.setAttribute('data-face-registered', 'yes');
+                        }
+                    });
+                    
+                    // Close modal after a delay
+                    setTimeout(() => {
+                        closeAllModals();
+                        
+                        // Re-apply filters
+                        filterStudents();
+                    }, 1500);
+                } else {
+                    registrationStatus.textContent = `Error: ${data.message}`;
+                    registerFaceBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                registrationStatus.textContent = 'An error occurred during registration. Please try again.';
+                registerFaceBtn.disabled = false;
+            });
         });
     });
-    
-    function viewStudent(studentId) {
-        // Placeholder for view functionality
-        alert('View student: ' + studentId);
-    }
-    
-    function registerFace(studentId) {
-        // Placeholder for face registration
-        alert('Register face for student: ' + studentId);
-        // In a real implementation, this would redirect to a face registration page
-        // window.location.href = `/register-face/${studentId}`;
-    }
 </script>
+
+<style>
+    .students-section {
+        margin-bottom: 40px;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .actions-container {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+    }
+    
+    .search-filter {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .filter-group {
+        display: flex;
+        align-items: center;
+    }
+    
+    .form-select {
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background-color: white;
+    }
+    
+    .sortable {
+        cursor: pointer;
+    }
+    
+    .sortable i {
+        margin-left: 5px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 5px;
+    }
+    
+    .action-btn {
+        padding: 6px 10px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background-color 0.2s;
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        text-decoration: none;
+    }
+    
+    .view-btn {
+        background-color: var(--primary-color);
+    }
+    
+    .view-btn:hover {
+        background-color: var(--primary-dark);
+    }
+    
+    .register-btn {
+        background-color: #0f9d58;
+    }
+    
+    .register-btn:hover {
+        background-color: #0b8043;
+    }
+    
+    .delete-btn, .delete-face-btn {
+        background-color: var(--danger-color);
+    }
+    
+    .delete-btn:hover, .delete-face-btn:hover {
+        background-color: var(--danger-dark);
+    }
+    
+    .camera-container {
+        width: 100%;
+        margin-bottom: 20px;
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+        background-color: #f0f0f0;
+        aspect-ratio: 4/3;
+    }
+    
+    #webcam {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .camera-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .face-guide {
+        width: 200px;
+        height: 200px;
+        border: 2px dashed rgba(255, 255, 255, 0.8);
+        border-radius: 50%;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.2);
+    }
+    
+    .camera-controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    
+    .status-message {
+        color: var(--text-medium);
+        font-size: 14px;
+        margin-bottom: 20px;
+    }
+    
+    .captured-image-container {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+    
+    .captured-image-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .warning-text {
+        color: var(--danger-color);
+        font-weight: bold;
+    }
+    
+    .btn-danger {
+        background-color: var(--danger-color);
+        color: white;
+    }
+    
+    .btn-danger:hover {
+        background-color: var(--danger-dark);
+    }
+    
+    @media (max-width: 768px) {
+        .section-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px;
+        }
+        
+        .actions-container {
+            width: 100%;
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .search-filter {
+            width: 100%;
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .action-buttons {
+            flex-wrap: wrap;
+        }
+    }
+</style>
 {% endblock %} 

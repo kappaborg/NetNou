@@ -45,6 +45,57 @@ def record_attendance(class_id, student_id, status='present'):
     
     return result
 
+def take_attendance(class_id, attendance_data):
+    """Record attendance for multiple students in a class.
+    
+    Args:
+        class_id (str): The class ID
+        attendance_data (list): List of attendance records, each containing student_id and status
+                              Example: [{"student_id": "1001", "status": "present"}, ...]
+        
+    Returns:
+        dict: Result of the operation with success status and message
+    """
+    if not class_id:
+        return {
+            'success': False,
+            'message': 'Class ID is required'
+        }
+        
+    if not attendance_data or not isinstance(attendance_data, list):
+        return {
+            'success': False,
+            'message': 'Attendance data must be a non-empty list'
+        }
+    
+    # Process each attendance record
+    results = []
+    success_count = 0
+    error_count = 0
+    
+    for record in attendance_data:
+        student_id = record.get('student_id')
+        status = record.get('status', 'present')
+        
+        result = record_attendance(class_id, student_id, status)
+        
+        if result['success']:
+            success_count += 1
+        else:
+            error_count += 1
+            
+        results.append({
+            'student_id': student_id,
+            'status': result['success'],
+            'message': result.get('message', '')
+        })
+    
+    return {
+        'success': error_count == 0,
+        'message': f'Recorded {success_count} attendance records. {error_count} errors.',
+        'results': results
+    }
+
 def get_recent_attendance(limit=10):
     """Get recent attendance records for all classes.
     
@@ -272,4 +323,32 @@ def get_student_details(student_id):
             'recent_attendance': recent_attendance
         },
         'face_registered': has_face_registered
-    } 
+    }
+
+def get_attendance_for_class(class_id):
+    """Get attendance records for a specific class.
+    
+    Args:
+        class_id (str): The ID of the class
+        
+    Returns:
+        list: Attendance records for the class
+    """
+    # Get attendance records from database
+    attendance_records = get_class_attendance(class_id)
+    
+    # Format records for display
+    formatted_records = []
+    for record in attendance_records:
+        student = get_student(record['student_id'])
+        if student:
+            formatted_records.append({
+                'id': record['id'],
+                'student_id': record['student_id'],
+                'student_name': f"{student['first_name']} {student['last_name']}",
+                'status': record['status'],
+                'timestamp': record['timestamp'],
+                'date': record['timestamp'].split(' ')[0]
+            })
+    
+    return formatted_records 

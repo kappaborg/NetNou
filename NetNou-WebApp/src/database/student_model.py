@@ -115,4 +115,20 @@ def update_student_face(student_id, has_face_registered):
     Returns:
         dict: Updated student object, or None if not found
     """
-    return update_student(student_id, {'has_face_registered': has_face_registered}) 
+    return update_student(student_id, {'has_face_registered': has_face_registered})
+
+def delete_student(student_id):
+    """Delete a student from the database.
+    
+    Args:
+        student_id (str): The student ID to delete
+        
+    Returns:
+        bool: True if student was deleted, False if not found
+    """
+    for i, student in enumerate(STUDENTS):
+        if student['id'] == student_id:
+            STUDENTS.pop(i)
+            return True
+    
+    return False 

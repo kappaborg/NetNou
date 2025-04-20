@@ -1,16 +1,19 @@
 """API routes for the application."""
 
 from flask import Blueprint, request, jsonify, session
+from flask_login import login_required, current_user
 from ..services.auth_service import authenticate_user
-from ..services.student_service import get_students, get_student, create_student
-from ..services.class_service import get_classes, create_class, record_attendance
-from ..services.attendance_service import get_student_details
+from ..services.student_service import get_students, get_student, create_student, delete_student
+from ..services.class_service import get_classes, create_class, record_attendance, get_class
+from ..services.attendance_service import get_student_details, take_attendance, get_attendance_for_class
 from ..services.face_service import (
     register_face, 
     identify_face, 
     face_recognition_attendance,
-    delete_face_registration
+    delete_face_registration,
+    FACE_EMBEDDINGS
 )
+from ..database.student_model import update_student_face
 
 # Create blueprint for API routes
 api = Blueprint('api', __name__, url_prefix='/api')
@@ -32,20 +35,72 @@ def login():
 
 # Face recognition routes
 @api.route('/register-face', methods=['POST'])
+@login_required
 def register_face_route():
     """Register a student's face."""
-    data = request.get_json()
-    student_id = data.get('student_id')
-    image_data = data.get('image_data')
-    
-    if not student_id or not image_data:
-        return jsonify({
-            'success': False, 
-            'message': 'Missing required fields: student_id and image_data'
-        })
-    
+    data = request.json
+    if not data or 'student_id' not in data or 'image_data' not in data:
+        return jsonify({'success': False, 'message': 'Missing required data'}), 400
+
+    student_id = data['student_id']
+    image_data = data['image_data']
+
+    # Check if the student exists
+    student = get_student(student_id)
+    if not student:
+        return jsonify({'success': False, 'message': 'Student not found'}), 404
+
+    # Register the face
     result = register_face(student_id, image_data)
-    return jsonify(result)
+
+    if result['success']:
+        # Update the student's face registration status
+        update_student_face(student_id, True)
+        return jsonify(result)
+    else:
+        return jsonify(result), 400
+
+@api.route('/register-face/<student_id>', methods=['DELETE'])
+@login_required
+def delete_face_registration_route(student_id):
+    """Delete a student's face registration."""
+    # Check if student exists
+    student = get_student(student_id)
+    if not student:
+        return jsonify({'success': False, 'message': 'Student not found'}), 404
+
+    # Delete the face registration
+    result = delete_face_registration(student_id)
+    
+    if result['success']:
+        # Update the student's face registration status
+        update_student_face(student_id, False)
+        return jsonify(result)
+    else:
+        return jsonify(result), 404
+
+@api.route('/register-face/<student_id>', methods=['PUT'])
+@login_required
+def update_face_registration_route(student_id):
+    """Update a student's face registration."""
+    # Check if student exists
+    student = get_student(student_id)
+    if not student:
+        return jsonify({'success': False, 'message': 'Student not found'}), 404
+
+    data = request.json
+    if not data or 'image_data' not in data:
+        return jsonify({'success': False, 'message': 'Missing image data'}), 400
+
+    image_data = data['image_data']
+
+    # Register face will handle updating if face already exists
+    result = register_face(student_id, image_data)
+    
+    if result['success']:
+        return jsonify(result)
+    else:
+        return jsonify(result), 400
 
 @api.route('/identify-face', methods=['POST'])
 def identify_face_route():
@@ -86,20 +141,31 @@ def face_attendance_route():
     
     return jsonify(result)
 
+# Keeping old method for backward compatibility
 @api.route('/delete-face-registration', methods=['POST'])
-def delete_face_registration_route():
-    """Delete a student's face registration."""
-    data = request.get_json()
-    student_id = data.get('student_id')
-    
-    if not student_id:
-        return jsonify({
-            'success': False,
-            'message': 'Missing required field: student_id'
-        })
-    
+@login_required
+def legacy_delete_face_registration_route():
+    """Legacy endpoint to delete a student's face registration."""
+    data = request.json
+    if not data or 'student_id' not in data:
+        return jsonify({'success': False, 'message': 'Missing student ID'}), 400
+
+    student_id = data['student_id']
+
+    # Check if student exists
+    student = get_student(student_id)
+    if not student:
+        return jsonify({'success': False, 'message': 'Student not found'}), 404
+
+    # Delete the face registration
     result = delete_face_registration(student_id)
-    return jsonify(result)
+    
+    if result['success']:
+        # Update the student's face registration status
+        update_student_face(student_id, False)
+        return jsonify(result)
+    else:
+        return jsonify(result), 404
 
 # Attendance routes
 @api.route('/record-attendance', methods=['POST'])
@@ -119,6 +185,41 @@ def record_attendance_route():
     result = record_attendance(class_id, student_id, status)
     return jsonify(result)
 
+@api.route('/take-attendance', methods=['POST'])
+@login_required
+def take_attendance_route():
+    data = request.json
+    if not data or 'class_id' not in data or 'attendance_data' not in data:
+        return jsonify({'success': False, 'message': 'Missing required data'}), 400
+
+    class_id = data['class_id']
+    attendance_data = data['attendance_data']
+    
+    # Check if the class exists
+    class_obj = get_class(class_id)
+    if not class_obj:
+        return jsonify({'success': False, 'message': 'Class not found'}), 404
+
+    # Take attendance
+    result = take_attendance(class_id, attendance_data)
+    return jsonify(result)
+
+@api.route('/class/<class_id>/attendance', methods=['GET'])
+@login_required
+def get_class_attendance_route(class_id):
+    # Check if the class exists
+    class_obj = get_class(class_id)
+    if not class_obj:
+        return jsonify({'success': False, 'message': 'Class not found'}), 404
+
+    # Get attendance records for the class
+    attendance = get_attendance_for_class(class_id)
+    return jsonify({
+        'success': True,
+        'class': class_obj,
+        'attendance': attendance
+    })
+
 # Student routes
 @api.route('/students', methods=['GET'])
 def get_students_route():
@@ -136,7 +237,19 @@ def get_student_route(student_id):
     
     return jsonify({'success': True, 'student': student})
 
-@api.route('/students/<student_id>/details', methods=['GET'])
+@api.route('/students/<student_id>', methods=['DELETE'])
+@login_required
+def delete_student_route(student_id):
+    """Delete a student by ID."""
+    result = delete_student(student_id)
+    
+    if not result['success']:
+        return jsonify(result), 404
+    
+    return jsonify(result)
+
+@api.route('/student/<student_id>/details', methods=['GET'])
+@login_required
 def get_student_details_route(student_id):
     """Get detailed student information including attendance history."""
     result = get_student_details(student_id)
